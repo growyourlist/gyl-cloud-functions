@@ -1,0 +1,10 @@
+{
+  "name": "gyl-admin-subscriber-delete",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "dynopromise-batchwriteuntildone": "^0.0.1",
+    "dynopromise-client": "^0.2.0"
+  }
+}
