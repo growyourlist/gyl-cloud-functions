@@ -1,0 +1,9 @@
+{
+  "name": "gyl-admin-template-post",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "peerDependencies": {
+    "aws-sdk": "^2.503.0"
+  }
+}
