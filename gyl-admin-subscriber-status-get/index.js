@@ -1,6 +1,8 @@
 const dynamodb = require('dynopromise-client')
 const isemail = require('isemail')
 
+const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
+
 let dbConfig = null
 if (process.env.TEST_AWS_REGION && process.env.TEST_AWS_DB_ENDPOINT) {
 	dbConfig = {
@@ -16,7 +18,7 @@ const db = dbConfig ? dynamodb(dbConfig) : dynamodb()
  * @return {Promise<Object>}
  */
 const getSubscriberIdByEmail = email => db.query({
-	TableName: 'Subscribers',
+	TableName: `${dbTablePrefix}Subscribers`,
 	IndexName: 'EmailToStatusIndex',
 	KeyConditionExpression: 'email = :email',
 	ExpressionAttributeValues: {
