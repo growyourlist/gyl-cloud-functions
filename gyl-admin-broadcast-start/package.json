@@ -1,0 +1,13 @@
+{
+  "name": "gyl-admin-broadcast-start",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "peerDependencies": {
+    "aws-sdk": "^2.503.0"
+  },
+  "dependencies": {
+    "@hapi/joi": "^15.1.0",
+    "dynopromise-client": "^0.2.0"
+  }
+}
