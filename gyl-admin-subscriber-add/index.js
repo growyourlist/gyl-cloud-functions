@@ -83,6 +83,17 @@ const getSubscriberIdByEmail = email => db.query({
 	return results.Items[0]
 })
 
+const getSubscriberFull = subscriberId => db.get({
+	TableName: 'Subscribers',
+	Key: { subscriberId },
+})
+.then(result => {
+	if (!result.Item) {
+		return null
+	}
+	return result.Item
+})
+
 /**
  * Generates a response object with the given statusCode.
  * @param  {Number} statusCode HTTP status code for response.
@@ -193,6 +204,7 @@ const updateSubscriberTags = (existingSub, newTags) => {
 		ExpressionAttributeNames: { '#tags': 'tags', },
 		ExpressionAttributeValues: { ':tags': tagsUpdate },
 	})
+	.then(() => tagsUpdate)
 }
 
 const runTrigger = (params, subscriber) => {
@@ -253,26 +265,33 @@ exports.handler = (event, context, callback) => {
 				})
 				.then(() => callback(null, response(200, 'OK')))
 			}
-			else if (existingSub && existingSub.confirmed
-				&& !existingSub.unsubscribed) {
-				if (hasAllTags(existingSub.tags, subscriber.tags)) {
-					return callback(null, response(400, 'Already subscribed'))
-				}
-				else {
-					return updateSubscriberTags(existingSub, subscriber.tags)
-					.then(() => callback(null, response(200, 'Tag added')))
-				}
-			}
 			else {
-				return updateSubscriberTags(existingSub, subscriber.tags)
-				.then(() => {
-					const fullSubscriber = Object.assign(subscriber, existingSub, {
-						tags: subscriber.tags
-					})
-					const params = event.queryStringParameters
-					return runTrigger(params, fullSubscriber)
+				return getSubscriberFull(existingSub.subscriberId)
+				.then(currentSubscriber => {
+					if (!hasAllTags(currentSubscriber.tags, subscriber.tags)) {
+						return updateSubscriberTags(currentSubscriber, subscriber.tags)
+						.then(tags => {
+							const fullSubscriber = Object.assign(currentSubscriber, subscriber, {
+								tags
+							})
+							return db.put({
+								TableName: 'Subscribers',
+								Item: fullSubscriber,
+							})
+							.then(() => runTrigger(event.queryStringParameters, fullSubscriber))
+						})
+						.then(() => callback(null, response(200, 'Tag added')))
+					}
+					else {
+						const fullSubscriber = Object.assign(currentSubscriber, subscriber)
+						return db.put({
+							TableName: 'Subscribers',
+							Item: fullSubscriber,
+						})
+						.then(() => runTrigger(event.queryStringParameters, fullSubscriber))
+						.then(() => callback(null, response(200, 'Subscriber updated')))
+					}
 				})
-				.then(() => callback(null, response(200, 'Tag added')))
 			}
 		})
 		.catch(err => {
