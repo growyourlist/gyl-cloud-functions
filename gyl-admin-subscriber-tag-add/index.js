@@ -1,34 +1,14 @@
-const dynamodb = require('dynopromise-client')
-const Joi = require('@hapi/joi')
+const AWS = require('aws-sdk');
+const Joi = require('@hapi/joi');
 
-const db = dynamodb()
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
-const subscriberDoesNotExistMessage = 'Subscriber does not exist.'
 
-const addTagSchema = Joi.object().keys({
+// Schema to validate the request to add a tag.
+const addTagSchema = Joi.object({
 	email: Joi.string().lowercase().email().required(),
-	tag: Joi.string().regex(/^[\w-]+$/).min(1).max(26).required(),
-})
-
-/**
- * Fetches a subscriber id associated with the given email.
- * @param  {String} email
- * @return {Promise<Object>}
- */
-const getSubscriberByEmail = email => db.query({
-	TableName: `${dbTablePrefix}Subscribers`,
-	IndexName: 'EmailToStatusIndex',
-	KeyConditionExpression: 'email = :email',
-	ExpressionAttributeValues: {
-		':email': email
-	},
-})
-.then(results => {
-	if (!results.Count) {
-		throw new Error(subscriberDoesNotExistMessage)
-	}
-	return results.Items[0]
+	tag: Joi.string().regex(/^[\w-]+$/).min(1).max(64).required(),
 })
 
 /**
@@ -46,49 +26,65 @@ const response = (statusCode, body = '') => {
 		body: body,
 	}
 }
-const getAddTagRequest = rawInput => {
-	try {
-		return JSON.parse(rawInput)
+
+/**
+ * Fetches a subscriber id associated with the given email.
+ * @param  {String} email
+ * @return {Promise<Object>}
+ */
+const getSubscriberByEmail = async email => {
+	const subscriberResponse = await dynamodb.query({
+		TableName: `${dbTablePrefix}Subscribers`,
+		IndexName: 'EmailToStatusIndex',
+		KeyConditionExpression: 'email = :email',
+		ExpressionAttributeValues: {
+			':email': email
+		},
+	}).promise()
+	if (!subscriberResponse.Count) {
+		throw new Error('Subscriber not found')
 	}
-	catch (ex) {
-		return null
+	const subscriber = subscriberResponse.Items[0]
+	if (!subscriber) {
+		throw new Error('Subscriber not found')
 	}
+	return subscriber
 }
 
-const addTag = (email, tag) => getSubscriberByEmail(email)
-.then(subscriber => {
-	const currentIndex = subscriber.tags.indexOf(tag)
-
-	// If the tag already exists, there's no more work to do.
+/**
+ * Adds a tag to the subscriber with the given email address.
+ */
+const addTag = async (email, tag) => {
+	const subscriber = await getSubscriberByEmail(email)
+	const currentTags = subscriber.tags || []
+	const currentIndex = currentTags.indexOf(tag)
 	if (currentIndex >= 0) {
+		// Tag already exists, can return
 		return
 	}
-	const newTags = subscriber.tags.slice()
-	newTags.push(tag)
-	return Promise.all([
-		db.update({
-			TableName: `${dbTablePrefix}Subscribers`,
-			Key: { subscriberId: subscriber.subscriberId },
-			UpdateExpression: "set #tags = :tags",
-			ExpressionAttributeNames: { '#tags': 'tags' },
-			ExpressionAttributeValues: { ':tags': newTags },
-		}),
-	])
-})
 
-exports.handler = (event, context, callback) => {
-	const addTagRequest = getAddTagRequest(event.body)
-	if (!addTagRequest) {
-		return callback(null, response(400, 'Invalid request'))
-	}
-	addTagSchema.validate(addTagRequest)
-	.then(input => addTag(input.email, input.tag))
-	.then(() => callback(null, response(200, 'OK')))
-	.catch(err => {
-		if (err.message === subscriberDoesNotExistMessage) {
-			return callback(null, response(404, 'Not found'))
-		}
-		console.log(`Error untagging: ${err.message}`)
-		return callback(null, response(500, 'Server error'))
+	const newTags = currentTags.concat([tag])
+	return dynamodb.update({
+		TableName: `${dbTablePrefix}Subscribers`,
+		Key: { subscriberId: subscriber.subscriberId },
+		UpdateExpression: "set #tags = :tags",
+		ExpressionAttributeNames: { '#tags': 'tags' },
+		ExpressionAttributeValues: { ':tags': newTags },
 	})
+}
+
+exports.handler = async event => {
+	try {
+		const addTagRequest = JSON.parse(event.body)
+		const addTagData = await addTagSchema.validateAsync(addTagRequest)
+		await addTag(addTagData.email, addTagData.tag)
+		return response(200, JSON.stringify('OK'))
+	}
+	catch (err) {
+		console.error(err)
+		return response(
+			err.statusCode || 500,
+			err.message || 'Error',
+		)
+	}
 }
