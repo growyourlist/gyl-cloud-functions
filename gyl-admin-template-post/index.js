@@ -1,5 +1,4 @@
 const AWS = require('aws-sdk')
-
 const ses = new AWS.SES
 
 /**
@@ -22,12 +21,13 @@ const readTemplateData = body => {
  * @param  {Number} statusCode HTTP status code for response.
  * @return {Object}
  */
-const response = statusCode => {
+const response = (statusCode, body) => {
 	return {
 		statusCode: statusCode,
 		headers: {
 			'Access-Control-Allow-Origin': '*'
-		}
+		},
+		body,
 	}
 }
 
@@ -53,7 +53,7 @@ const wrapHtmlPart = (subject, htmlBody) => {
  * @param  {Object} params
  * @return {Promise}
  */
-const createTemplate = params => new Promise((resolve, reject) => {
+const createOrUpdateTemplate = async params => {
 	const templateParams = {
 		TemplateName: params.TemplateName,
 		SubjectPart: params.SubjectPart,
@@ -63,35 +63,30 @@ const createTemplate = params => new Promise((resolve, reject) => {
 		),
 		TextPart: params.TextPart
 	}
-	ses.createTemplate({
-		Template: templateParams
-	}, (err, data) => {
-		if (err && err.code === 'AlreadyExists') {
-			ses.updateTemplate({
-				Template: templateParams
-			}, (innerErr, innerData) => {
-				if (innerErr) {
-					return reject(innerErr)
-				}
-				return resolve(innerData)
-			})
-		}
-		else if (err) {
-			return reject(err)
-		}
-		return resolve(data)
-	})
-})
-
-exports.handler = (event, context, callback) => {
-	const templateData = readTemplateData(event.body)
-	if (!templateData) {
-		return callback(null, response(400))
+	try {
+		return await ses.createTemplate({Template: templateParams}).promise()
 	}
-	return createTemplate(templateData)
-	.then(() => callback(null, response(200)))
-	.catch(err => {
+	catch (err) {
+		if (err && err.code === 'AlreadyExists') {
+			return await ses.updateTemplate({
+				Template: templateParams
+			}).promise()
+		}
+		throw err
+	}
+}
+
+exports.handler = async event => {
+	try {
+		const templateData = readTemplateData(event.body)
+		if (!templateData) {
+			return response(400, JSON.stringify('Bad request'))
+		}
+		await createOrUpdateTemplate(templateData)
+		return response(200, JSON.stringify('OK'))
+	}
+	catch (err) {
 		console.log(`Error creating template: ${err.message}`)
-		return callback(null, response(500))
-	})
+		return response(500, JSON.stringify(err.message))
+	}
 }

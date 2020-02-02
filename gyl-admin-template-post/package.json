@@ -1,9 +1,14 @@
 {
   "name": "gyl-admin-template-post",
+  "description": "Posts an SES template",
   "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
   "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "peerDependencies": {
-    "aws-sdk": "^2.503.0"
+    "aws-sdk": "^2.610.0"
   }
 }
