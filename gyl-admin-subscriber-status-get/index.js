@@ -1,36 +1,6 @@
-const dynamodb = require('dynopromise-client')
-const isemail = require('isemail')
-
+const AWS = require('aws-sdk');
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
-
-let dbConfig = null
-if (process.env.TEST_AWS_REGION && process.env.TEST_AWS_DB_ENDPOINT) {
-	dbConfig = {
-		region: process.env.TEST_AWS_REGION,
-		endpoint: process.env.TEST_AWS_DB_ENDPOINT,
-	}
-}
-const db = dbConfig ? dynamodb(dbConfig) : dynamodb()
-
-/**
- * Fetches a subscriber id associated with the given email.
- * @param  {String} email
- * @return {Promise<Object>}
- */
-const getSubscriberIdByEmail = email => db.query({
-	TableName: `${dbTablePrefix}Subscribers`,
-	IndexName: 'EmailToStatusIndex',
-	KeyConditionExpression: 'email = :email',
-	ExpressionAttributeValues: {
-		':email': email
-	},
-})
-.then(results => {
-	if (!results.Count) {
-		return null
-	}
-	return results.Items[0]
-})
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 /**
  * Generates a response object with the given statusCode.
@@ -42,26 +12,39 @@ const response = (statusCode, body = '') => {
 		statusCode: statusCode,
 		headers: {
 			'Access-Control-Allow-Origin': '*',
-			'Content-Type': 'text/plain; charset=utf-8'
+			'Content-Type': 'application/json; charset=utf-8',
 		},
-		body: typeof body === 'string' ? body : JSON.stringify(body),
-	}
-}
+		body,
+	};
+};
 
-exports.handler = (event, context, callback) => {
-	const subscriberEmail = event.queryStringParameters['email']
-	if (!subscriberEmail || !isemail.validate(subscriberEmail)) {
-		return callback(null, response(400, 'Bad request'))
-	}
-	getSubscriberIdByEmail(subscriberEmail)
-	.then(subscriberStatus => {
-		if (!subscriberStatus) {
-			return callback(null, response(404, 'Not found'))
+exports.handler = async event => {
+	try {
+		const email = event.queryStringParameters['email'];
+		if (typeof email !== 'string' || email.length < 1 || email.length > 256) {
+			return response(400, 'Bad request');
 		}
-		callback(null, response(200, subscriberStatus))
-	})
-	.catch(err => {
-		console.log(`Error getting status: ${err.message}`)
-		callback(null, response(500, 'Server error'))
-	})
-}
+		const subscriberEmail = email.toLocaleLowerCase();
+		const subscriberResponse = await dynamodb
+			.query({
+				TableName: `${dbTablePrefix}Subscribers`,
+				IndexName: 'EmailToStatusIndex',
+				KeyConditionExpression: 'email = :email',
+				ExpressionAttributeValues: {
+					':email': subscriberEmail,
+				},
+			})
+			.promise();
+		const subscriber = subscriberResponse.Count && subscriberResponse.Items[0];
+		if (!subscriber) {
+			return response(404, 'Not found');
+		}
+		return response(200, JSON.stringify(subscriber));
+	} catch (err) {
+		console.error(err);
+		return response(
+			err.statusCode || 500,
+			JSON.stringify(err.message || 'Error')
+		);
+	}
+};
