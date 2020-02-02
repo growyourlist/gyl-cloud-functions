@@ -45,7 +45,7 @@ exports.handler = async event => {
 			},
 		});
 		const queueItems = itemsResponse.Count && queueItems.Items
-		if (Array.isArray(queueItems)) {
+		if (Array.isArray(queueItems) && queueItems.length) {
 			await writeAllForDynamoDB(dynamodb, {
 				RequestItems: {
 					[`${dbTablePrefix}Queue`]: queueItems.map(item => ({
