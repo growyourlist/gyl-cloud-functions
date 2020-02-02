@@ -1,9 +1,14 @@
 {
   "name": "gyl-admin-lists-get",
   "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
   "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
-  "dependencies": {
-    "dynopromise-client": "^0.2.0"
+  "dependencies": {},
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
   }
 }
