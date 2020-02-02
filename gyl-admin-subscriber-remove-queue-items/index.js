@@ -1,65 +1,62 @@
-const { DynamoDB } = require('aws-sdk')
-const { fullQueryForDynamoDB, ReturnType } = require('full-query-for-dynamodb')
+const AWS = require('aws-sdk')
+const { queryAllForDynamoDB } = require('query-all-for-dynamodb')
+const { writeAllForDynamoDB } = require('write-all-for-dynamodb')
 
-const dynamodb = new DynamoDB.DocumentClient()
-
-const getSubscriber = email => new Promise((resolve, reject) => {
-	dynamodb.query({
-		TableName: 'Subscribers',
-		IndexName: 'EmailToStatusIndex',
-		KeyConditionExpression: '#email = :email',
-		ExpressionAttributeNames: { '#email': 'email' },
-		ExpressionAttributeValues: { ':email': email },
-	}, (err, data) => {
-		if (err) {
-			reject(err)
-			return
-		}
-		if (!data.Count) {
-			resolve(null)
-			return
-		}
-		resolve(data.Items[0])
-	})
-})
-
-const getQueueItems = async (subscriberId) => {
-	return await fullQueryForDynamoDB(
-		dynamodb,
-		{
-			TableName: 'Queue',
-			IndexName: 'subscriberIdAndTagReason',
-			KeyConditionExpression: '#subscriberId = :subscriberId',
-			FilterExpression: '#queuePlacement = :queuePlacement',
-			ExpressionAttributeNames: {
-				'#subscriberId': 'subscriberId',
-				'#queuePlacement': 'queuePlacement',
-			},
-			ExpressionAttributeValues: {
-				':subscriberId': subscriberId,
-				':queuePlacement': 'queued',
-			},
-		},
-		{
-			returnType: ReturnType.items
-		}
-	)
-}
+const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const run = async (input) => {
 	try {
-		if (!input || !input.email) {
+		if (!input || (typeof input.email !== 'string')) {
 			throw new Error('No email provided')
 		}
-		const { email } = input
+		const email = input.email.toLocaleLowerCase()
 		if (email.length > 256) {
 			throw new Error('Email too large')
 		}
-		const subscriber = await getSubscriber(input.email)
+		const subscriberResponse = await dynamodb.query({
+			TableName: `${dbTablePrefix}Subscribers`,
+			IndexName: 'EmailToStatusIndex',
+			KeyConditionExpression: '#email = :email',
+			ExpressionAttributeNames: { '#email': 'email' },
+			ExpressionAttributeValues: { ':email': email },
+		}).promise()
+		const subscriber = subscriberResponse.Items && subscriberResponse.Items[0]
 		if (!subscriber) {
 			throw new Error('Subscriber not found')
 		}
-		await getQueueItems(subscriber.subscriberId)
+		const queueInfoResponse = await queryAllForDynamoDB(
+			dynamodb,
+			{
+				TableName: `${dbTablePrefix}Queue`,
+				IndexName: 'subscriberId-index',
+				KeyConditionExpression: '#subscriberId = :subscriberId',
+				FilterExpression: '#queuePlacement = :queued',
+				ExpressionAttributeNames: {
+					'#subscriberId': 'subscriberId',
+					'#queuePlacement': 'queuePlacement',
+				},
+				ExpressionAttributeValues: {
+					':subscriberId': subscriber.subscriberId,
+					':queued': 'queued',
+				},
+			}
+		)
+		const queueInfoItems = queueInfoResponse.Count && queueInfoResponse.Items;
+		if (Array.isArray(queueInfoItems) && queueInfoItems.length) {
+			await writeAllForDynamoDB(dynamodb, {
+				RequestItems: {
+					[`${dbTablePrefix}Queue`]: queueInfoItems.map(item => ({
+						DeleteRequest: {
+							Key: {
+								queuePlacement: item.queuePlacement,
+								runAtModified: item.runAtModified,
+							}
+						}
+					}))
+				}
+			})
+		}
 	}
 	catch (err) {
 		console.error(err)

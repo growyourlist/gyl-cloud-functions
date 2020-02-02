@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-remove-queue-items",
-  "version": "0.0.1",
   "description": "Removes all the items queued for a subscriber.",
+  "version": "0.0.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -9,6 +9,10 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "dependencies": {
-    "full-query-for-dynamodb": "0.0.1"
+    "query-all-for-dynamodb": "0.0.2",
+    "write-all-for-dynamodb": "0.0.3"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
   }
 }
