@@ -1,16 +1,22 @@
 {
   "name": "gyl-admin-add-subscriber",
+  "description": "Adds a subscriber.",
   "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
   "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "scripts": {
     "test": "node test"
   },
   "dependencies": {
-    "@hapi/joi": "^15.1.0",
-    "dynopromise-client": "^0.2.0",
+    "@hapi/joi": "^17.1.0",
     "moment-timezone": "^0.5.26",
-    "uuid": "^3.3.2"
+    "uuid": "^3.4.0"
   },
-  "devDependencies": {}
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
+  }
 }
