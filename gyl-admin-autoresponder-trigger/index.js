@@ -9,7 +9,7 @@ const subscriberSchema = Joi.object({
 	email: Joi.string()
 		.email()
 		.required(),
-	subscriberId: Joi.string().guid()
+	subscriberId: Joi.string().guid(),
 }).or('email', 'subscriberId');
 
 // Schema to validate trigger info.
@@ -22,7 +22,7 @@ const triggerSchema = Joi.object({
 		.required(),
 	triggerStep: Joi.string()
 		.pattern(/[a-zA-Z0-9]+/)
-		.optional()
+		.optional(),
 });
 
 /**
@@ -35,7 +35,7 @@ const getFullSubscriber = async subscriberData => {
 		const response = await dynamodb
 			.get({
 				TableName: `${dbTablePrefix}Subscribers`,
-				Key: { subscriberId: subscriberData.subscriberId }
+				Key: { subscriberId: subscriberData.subscriberId },
 			})
 			.promise();
 		if (!response.Item) {
@@ -51,8 +51,8 @@ const getFullSubscriber = async subscriberData => {
 			IndexName: 'EmailToStatusIndex',
 			KeyConditionExpression: 'email = :email',
 			ExpressionAttributeValues: {
-				':email': subscriberData.email
-			}
+				':email': subscriberData.email,
+			},
 		})
 		.promise();
 	if (
@@ -77,29 +77,31 @@ const response = (statusCode, body = '') => {
 		statusCode: statusCode,
 		headers: {
 			'Access-Control-Allow-Origin': '*',
-			'Content-Type': 'application/json; charset=utf-8'
+			'Content-Type': 'application/json; charset=utf-8',
 		},
-		body
+		body,
 	};
 };
 
 /**
  * Runs the given trigger using the given subscriber details.
- * @param {object} trigger 
- * @param {object} subscriber 
+ * @param {object} trigger
+ * @param {object} subscriber
  */
 const runTrigger = async (trigger, subscriber) => {
-	const autoresponderResponse = await dynamodb.get({
-		TableName: `${dbTablePrefix}Settings`,
-		Key: { settingName: `autoresponder-${trigger.triggerId}` }
-	}).promise();
+	const autoresponderResponse = await dynamodb
+		.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: { settingName: `autoresponder-${trigger.triggerId}` },
+		})
+		.promise();
 	if (typeof autoresponderResponse.Item !== 'object') {
 		const err = new Error('Autoresponder not found');
 		err.statusCode = 400;
 		throw err;
 	}
 	const autoresponder = autoresponderResponse.Item;
-	const stepName = trigger.triggerStep || 'Start'
+	const stepName = trigger.triggerStep || 'Start';
 	const startStep =
 		autoresponder &&
 		autoresponder.value &&
@@ -111,7 +113,9 @@ const runTrigger = async (trigger, subscriber) => {
 		throw err;
 	}
 	const runAt = Date.now();
-	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
+	const runAtModified = `${runAt}${Math.random()
+		.toString()
+		.substring(1)}`;
 	const queueItem = Object.assign({}, startStep, {
 		queuePlacement: 'queued',
 		runAtModified,
@@ -121,13 +125,15 @@ const runTrigger = async (trigger, subscriber) => {
 		completed: false,
 		subscriber,
 		subscriberId: subscriber.subscriberId,
-		autoresponderId:autoresponder.autoresponderId,
+		autoresponderId: autoresponder.autoresponderId,
 		autoresponderStep: stepName,
 	});
-	return await dynamodb.put({
-		TableName: `${dbTablePrefix}Queue`,
-		Item: queueItem
-	}).promise()
+	return await dynamodb
+		.put({
+			TableName: `${dbTablePrefix}Queue`,
+			Item: queueItem,
+		})
+		.promise();
 };
 
 exports.handler = async event => {
