@@ -1,9 +1,14 @@
 {
   "name": "gyl-admin-templates-get",
-  "version": "1.0.0",
+  "description": "Gets the SES templates",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
   "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "peerDependencies": {
-    "aws-sdk": "^2.503.0"
+    "aws-sdk": "^2.610.0"
   }
 }

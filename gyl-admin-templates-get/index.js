@@ -1,6 +1,5 @@
-const AWS = require('aws-sdk')
-
-const ses = new AWS.SES
+const AWS = require('aws-sdk');
+const ses = new AWS.SES();
 
 /**
  * Generates a response object with the given statusCode.
@@ -12,39 +11,35 @@ const response = (statusCode, body) => {
 	return {
 		statusCode: statusCode,
 		headers: {
-			'Access-Control-Allow-Origin': '*'
+			'Access-Control-Allow-Origin': '*',
 		},
-		body: JSON.stringify(body)
-	}
-}
+		body: JSON.stringify(body),
+	};
+};
 
 /**
  * Gets the templates stored by SES.
  * @return {Promise}
  */
-const getTemplates = nextToken => new Promise((resolve, reject) => {
-	const params = {}
+const getTemplates = async nextToken => {
+	const params = {};
 	if (nextToken) {
-		params.NextToken = nextToken
+		params.NextToken = nextToken;
 	}
-	ses.listTemplates(params, (err, data) => {
-		if (err) {
-			return reject(err)
-		}
-		return resolve(data)
-	})
-})
+	return await ses.listTemplates(params).promise();
+};
 
-exports.handler = (event, context, callback) => {
-	return getTemplates(
-		event.queryStringParameters && event.queryStringParameters.nextToken
-	)
-	.then(result => callback(null, response(200, {
-		templates: result.TemplatesMetadata,
-		nextToken: result.NextToken,
-	})))
-	.catch(err => {
-		console.log(`Error getting templates: ${err.message}`)
-		return callback(null, response(500, err.message))
-	})
-}
+exports.handler = async event => {
+	try {
+		const results = await getTemplates(
+			event.queryStringParameters && event.queryStringParameters.nextToken
+		);
+		return response(200, {
+			templates: results.TemplatesMetadata || [],
+			nextToken: results.NextToken,
+		});
+	} catch (err) {
+		console.error(err);
+		return response(500, err.message);
+	}
+};
