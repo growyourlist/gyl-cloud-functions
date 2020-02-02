@@ -85,7 +85,7 @@ const run = async () => {
 					i.isDirectory() && existsSync(`./${sep}${i.name}${sep}package.json`)
 			)
 			.map(i => i.name);
-		return Promise.all(files.map(async file => {
+		return await Promise.all(files.map(async file => {
 			const dir = join(process.cwd(), file);
 			await deleteNodeModulesFolder(dir);
 			await runDockerNpmInstall(dir);
