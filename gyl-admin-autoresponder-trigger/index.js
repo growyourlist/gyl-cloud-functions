@@ -1,53 +1,71 @@
-const dynamodb = require('dynopromise-client')
-const Joi = require('joi')
+const AWS = require('aws-sdk');
+const Joi = require('@hapi/joi');
 
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
-let dbConfig = null
-if (process.env.TEST_AWS_REGION && process.env.TEST_AWS_DB_ENDPOINT) {
-	dbConfig = {
-		region: process.env.TEST_AWS_REGION,
-		endpoint: process.env.TEST_AWS_DB_ENDPOINT,
-	}
-}
 
-const db = dbConfig ? dynamodb(dbConfig) : dynamodb()
+// Schema to validate subscriber info.
+const subscriberSchema = Joi.object({
+	email: Joi.string()
+		.email()
+		.required(),
+	subscriberId: Joi.string().guid()
+}).or('email', 'subscriberId');
 
-// Schema to validate incoming add subscriber requests from userland.
-const triggerSchema = Joi.object().keys({
-	email: Joi.string().email(),
-	subscriberId: Joi.string().guid(),
-})
-
-const getSubscriberById = subscriberId => db.get({
-	TableName: `${dbTablePrefix}Subscribers`,
-	Key: { subscriberId }
-})
-.then(res => res.Item || null)
+// Schema to validate trigger info.
+const triggerSchema = Joi.object({
+	triggerType: Joi.string()
+		.valid('autoresponder')
+		.required(),
+	triggerId: Joi.string()
+		.pattern(/[a-zA-Z0-9]+/)
+		.required(),
+	triggerStep: Joi.string()
+		.pattern(/[a-zA-Z0-9]+/)
+		.optional()
+});
 
 /**
- * Fetches a subscriber id associated with the given email.
+ * Fetches a subscriber associated with the given email or id.
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getFullSubscriber = subscriberData => {
+const getFullSubscriber = async subscriberData => {
 	if (subscriberData.subscriberId) {
-		return getSubscriberById(subscriberData.subscriberId)
-	}
-	return db.query({
-		TableName: `${dbTablePrefix}Subscribers`,
-		IndexName: 'EmailToStatusIndex',
-		KeyConditionExpression: 'email = :email',
-		ExpressionAttributeValues: {
-			':email': subscriberData.email
-		},
-	})
-	.then(results => {
-		if (!results.Count) {
-			return null
+		const response = await dynamodb
+			.get({
+				TableName: `${dbTablePrefix}Subscribers`,
+				Key: { subscriberId: subscriberData.subscriberId }
+			})
+			.promise();
+		if (!response.Item) {
+			const err = new Error('Subscriber not found');
+			err.statusCode = 400;
+			throw err;
 		}
-		return getSubscriberById(results.Items[0].subscriberId)
-	})
-}
+		return response.Item;
+	}
+	const response = await dynamodb
+		.query({
+			TableName: `${dbTablePrefix}Subscribers`,
+			IndexName: 'EmailToStatusIndex',
+			KeyConditionExpression: 'email = :email',
+			ExpressionAttributeValues: {
+				':email': subscriberData.email
+			}
+		})
+		.promise();
+	if (
+		!response.Count ||
+		!response.Items[0] ||
+		!response.Items[0].subscriberId
+	) {
+		const err = new Error('Subscriber not found');
+		err.statusCode = 400;
+		throw err;
+	}
+	return await getFullSubscriber(response.Items[0]);
+};
 
 /**
  * Generates a response object with the given statusCode.
@@ -59,78 +77,72 @@ const response = (statusCode, body = '') => {
 		statusCode: statusCode,
 		headers: {
 			'Access-Control-Allow-Origin': '*',
-			'Content-Type': 'text/plain; charset=utf-8'
+			'Content-Type': 'application/json; charset=utf-8'
 		},
-		body: body,
-	}
-}
+		body
+	};
+};
 
-const getSubscriberData = body => {
+/**
+ * Runs the given trigger using the given subscriber details.
+ * @param {object} trigger 
+ * @param {object} subscriber 
+ */
+const runTrigger = async (trigger, subscriber) => {
+	const autoresponderResponse = await dynamodb.get({
+		TableName: `${dbTablePrefix}Settings`,
+		Key: { settingName: `autoresponder-${trigger.triggerId}` }
+	}).promise();
+	if (typeof autoresponderResponse.Item !== 'object') {
+		const err = new Error('Autoresponder not found');
+		err.statusCode = 400;
+		throw err;
+	}
+	const autoresponder = autoresponderResponse.Item;
+	const stepName = trigger.triggerStep || 'Start'
+	const startStep =
+		autoresponder &&
+		autoresponder.value &&
+		autoresponder.value.steps &&
+		autoresponder.value.steps[stepName];
+	if (typeof startStep !== 'object') {
+		const err = new Error('Autoresponder not found');
+		err.statusCode = 400;
+		throw err;
+	}
+	const runAt = Date.now();
+	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
+	const queueItem = Object.assign({}, startStep, {
+		queuePlacement: 'queued',
+		runAtModified,
+		runAt,
+		attempts: 0,
+		failed: false,
+		completed: false,
+		subscriber,
+		subscriberId: subscriber.subscriberId,
+		autoresponderId:autoresponder.autoresponderId,
+		autoresponderStep: stepName,
+	});
+	return await dynamodb.put({
+		TableName: `${dbTablePrefix}Queue`,
+		Item: queueItem
+	}).promise()
+};
+
+exports.handler = async event => {
 	try {
-		return JSON.parse(body)
+		const subscriberInfo = await subscriberSchema.validateAsync(
+			JSON.parse(event.body)
+		);
+		const subscriber = await getFullSubscriber(subscriberInfo);
+		const trigger = await triggerSchema.validateAsync(
+			event.queryStringParameters
+		);
+		await runTrigger(trigger, subscriber);
+		return response(200, JSON.stringify('OK'));
+	} catch (err) {
+		console.error(err);
+		return response(err.statusCode || 500, JSON.stringify(err.message));
 	}
-	catch (ex) {
-		return null
-	}
-}
-
-const runTrigger = (params, subscriber) => {
-	if (params.triggerType === 'autoresponder' && params.triggerId) {
-		const autoresponderId = params.triggerId
-		return db.get({
-			TableName: `${dbTablePrefix}Settings`,
-			Key: {
-				settingName: `autoresponder-${autoresponderId}`
-			}
-		})
-		.then(result => {
-			const stepname = params.triggerStep || 'Start'
-			const startStep = result && result.Item && result.Item.value
-			&& result.Item.value.steps && result.Item.value.steps[stepname]
-			if (!startStep) {
-				console.log('Start step not found')
-				return
-			}
-			
-			const runAt = Date.now()
-			const runAtModified = `${runAt}${Math.random().toString().substring(1)}`
-			const queueItem = Object.assign({}, startStep, {
-				queuePlacement: 'queued',
-				runAtModified,
-				runAt,
-				attempts: 0,
-				failed: false,
-				completed: false,
-				subscriber,
-				subscriberId: subscriber.subscriberId,
-				autoresponderId,
-				autoresponderStep: stepname,
-			})
-			return db.put({
-				TableName: `${dbTablePrefix}Queue`,
-				Item: queueItem,
-			})
-		})
-	}
-	return Promise.resolve()
-}
-
-exports.handler = (event, context, callback) => {
-	const input = getSubscriberData(event.body) // Subscriber data
-	if (!input) {
-		return callback(null, response(400, 'Bad request'))
-	}
-	triggerSchema.validate(input)
-	.then(subscriberBasic => getFullSubscriber(subscriberBasic))
-	.then(fullSubscriber => {
-		if (!fullSubscriber) {
-			return callback(null, response(404, 'Subscriber not found'))
-		}
-		return runTrigger(event.queryStringParameters, fullSubscriber)
-		.then(() => callback(null, response(200, 'OK')))
-	})
-	.catch(err => {
-		console.log(`Error triggering autoresponder: ${err.message}`)
-		return callback(null, response(500))
-	})
-}
+};

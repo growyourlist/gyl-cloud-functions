@@ -1,10 +1,18 @@
 {
   "name": "gyl-admin-autoresponder-trigger",
+  "description": "Triggers an autoresponder.",
   "version": "0.1.0",
   "main": "index.js",
   "license": "MIT",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "dependencies": {
-    "@hapi/joi": "^15.1.0",
-    "dynopromise-client": "^0.2.0"
+    "@hapi/joi": "^17.1.0",
+    "aws-sdk": "^2.610.0"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
   }
 }
