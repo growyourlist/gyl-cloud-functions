@@ -19,10 +19,6 @@ const response = (statusCode, body) => {
 	}
 }
 
-const getPreview = doc => {
-	return ''
-}
-
 const getHtml = doc => {
 	try {
 		return parse5.serialize(doc.childNodes[1].childNodes[1])
@@ -36,33 +32,31 @@ const getHtml = doc => {
  * Gets the SES email template.
  * @return {Promise}
  */
-const getTemplate = templateName => new Promise((resolve, reject) => {
-	ses.getTemplate({
+const getTemplate = async templateName => {
+	const templateData = await ses.getTemplate({
 		TemplateName: templateName
-	}, (err, data) => {
-		if (err) {
-			return reject(err)
-		}
-		const doc = parse5.parse(data.Template.HtmlPart)
-		return resolve(Object.assign({}, data.Template, {
-			PreviewPart: getPreview(doc),
-			HtmlPart: getHtml(doc),
-		}))
+	}).promise()
+	const doc = parse5.parse(templateData.Template.HtmlPart)
+	return Object.assign({}, templateData.Template, {
+		PreviewPart: '',
+		HtmlPart: getHtml(doc),
 	})
-})
+}
 
-exports.handler = (event, context, callback) => {
-	const templateName = event.queryStringParameters['template-name']
-	if (!templateName) {
-		return callback(null, response(400, null))
-	}
-	getTemplate(templateName)
-	.then(result => callback(null, response(200, result)))
-	.catch(err => {
-		if (err.name === 'TemplateDoesNotExist') {
-			return callback(null, response(404, 'Not found'))
+exports.handler = async event => {
+	try {
+		const templateName = event.queryStringParameters['template-name']
+		if (!templateName) {
+			return response(400, null)
 		}
-		console.log(`Error getting template: ${err.message}`)
-		callback(null, response(500, null))
-	})
+		const template = await getTemplate(templateName)
+		return response(200, template)
+	}
+	catch (err) {
+		if (err.name === 'TemplateDoesNotExist') {
+			return response(404, 'Not found')
+		}
+		console.error(err)
+		return response(500, err.message)
+	}
 }
