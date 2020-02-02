@@ -1,10 +1,17 @@
 {
   "name": "gyl-subscriber-confirm",
+  "description": "Confirms a subscriber",
   "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
   "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "dependencies": {
-    "dynopromise-client": "^0.2.0",
-    "moment-timezone": "^0.5.26"
+    "moment-timezone": "^0.5.27"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
   }
 }
