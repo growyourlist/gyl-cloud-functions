@@ -40,7 +40,7 @@ const deleteNodeModulesFolder = async dir =>
 	});
 
 const runDockerNpmInstall = async dir => {
-	Logger.info`Running "npm install" in ${dir}`);
+	Logger.info(`Running "npm install" in ${dir}`);
 	const cmd =
 		`powershell -Command "docker run --rm -v ${dir}:/var/task ` +
 		'lambci/lambda:build-nodejs12.x npm install `"--silent`""';
