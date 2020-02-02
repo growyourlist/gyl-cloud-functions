@@ -2,6 +2,8 @@ const AWS = require('aws-sdk');
 const Joi = require('@hapi/joi');
 const uuidv4 = require('uuid/v4');
 const moment = require('moment-timezone');
+const { queryAllForDynamoDB } = require('query-all-for-dynamodb')
+const { writeAllForDynamoDB } = require('write-all-for-dynamodb')
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -320,6 +322,50 @@ exports.handler = async event => {
 				.promise();
 			if (!hasAllTags) {
 				await runTrigger(event.queryStringParameters, updatedSubscriber);
+			}
+			const queueInfoResponse = await queryAllForDynamoDB(
+				dynamodb,
+				{
+					TableName: `${dbTablePrefix}Queue`,
+					IndexName: 'subscriberId-index',
+					KeyConditionExpression: '#subscriberId = :subscriberId',
+					FilterExpression: '#queuePlacement = :queued',
+					ExpressionAttributeNames: {
+						'#subscriberId': 'subscriberId',
+						'#queuePlacement': 'queuePlacement',
+					},
+					ExpressionAttributeValues: {
+						':subscriberId': updatedSubscriber.subscriberId,
+						':queued': 'queued',
+					},
+				}
+			)
+			const queueInfoItems = queueInfoResponse.Count && queueInfoResponse.Items;
+			if (Array.isArray(queueInfoItems) && queueInfoItems.length) {
+				const queueResponse = await dynamodb.batchGet({
+					RequestItems: {
+						Queue: {
+							Keys: queueInfoItems.slice(0, 100).map(item => ({
+								queuePlacement: item.queuePlacement,
+								runAtModified: item.runAtModified,
+							}))
+						}
+					}
+				}).promise()
+				const queueItems = queueResponse.Count && queueResponse.Items
+				if (Array.isArray(queueItems) && queueItems.length) {
+					await writeAllForDynamoDB(dynamodb, {
+						RequestItems: {
+							[`${dbTablePrefix}Queue`]: queueItems.map(item => ({
+								PutRequest: {
+									Item: Object.assign({}, item, {
+										subscriber: updatedSubscriber
+									})
+								}
+							}))
+						}
+					})
+				}
 			}
 			return response(200, JSON.stringify('Updated'));
 		}
