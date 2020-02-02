@@ -1,0 +1,11 @@
+{
+  "name": "gyl-api-authorizer",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-api-authorizer"
+  },
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "license": "MIT",
+  "dependencies": {}
+}
