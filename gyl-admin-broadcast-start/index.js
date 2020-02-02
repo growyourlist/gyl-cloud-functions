@@ -1,38 +1,38 @@
-const AWS = require('aws-sdk')
-const dynamodb = require('dynopromise-client')
-const Joi = require('@hapi/joi')
-
+const AWS = require('aws-sdk');
+const Joi = require('@hapi/joi');
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
-const broadcastSchema = Joi.object().keys({
-	templateId: Joi.string().regex(/^[\w-]+$/).required(),
-	tags: Joi.array().items(Joi.string().regex(/^[\w-]+$/).min(1).max(128)),
+// Schema to validate the triggering of a broadcast.
+const broadcastSchema = Joi.object({
+	templateId: Joi.string()
+		.regex(/^[\w-]+$/)
+		.required(),
+	tags: Joi.array().items(
+		Joi.string()
+			.regex(/^[\w-]+$/)
+			.min(1)
+			.max(128)
+	),
 	properties: Joi.object(),
-	runAt: Joi.number().allow(null).greater(Date.now() - 5000),
-	interactions: Joi.array().items(Joi.object().keys({
-		templateId: Joi.string().regex(/^[\w-]+$/).required(),
-		emailDate: Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-		click: Joi.boolean(),
-		open: Joi.boolean(),
-	})),
-})
+	runAt: Joi.number()
+		.allow(null)
+		.greater(Date.now() - 86400000),
+	interactions: Joi.array().items(
+		Joi.object().keys({
+			templateId: Joi.string()
+				.regex(/^[\w-]+$/)
+				.required(),
+			emailDate: Joi.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.required(),
+			click: Joi.boolean(),
+			open: Joi.boolean(),
+		})
+	),
+});
 
-const db = dynamodb()
-const ses = new AWS.SES()
-
-/**
- * Attempts to parse request body JSON.
- * @param  {String} body Request body
- * @return {Object}
- */
-const getInput = body => {
-	try {
-		return JSON.parse(body)
-	}
-	catch (ex) {
-		return null
-	}
-}
+const ses = new AWS.SES();
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 /**
  * Generates a response object with the given statusCode.
@@ -44,36 +44,42 @@ const response = (statusCode, body = '') => {
 		statusCode: statusCode,
 		headers: {
 			'Access-Control-Allow-Origin': '*',
-			'Content-Type': 'text/plain; charset=utf-8',
+			'Content-Type': 'application/json; charset=utf-8',
 		},
 		body,
-	}
-}
+	};
+};
 
-exports.handler = (event, context, callback) => {
-	const broadcastData = getInput(event.body)
-	broadcastSchema.validate(broadcastData)
-	.then(opts => new Promise(
-		(resolve, reject) => ses.getTemplate({
-			TemplateName: broadcastData.templateId
-		}, (err, data) => {
-			if (err) {
-				return reject(err)
-			}
-			db.put({
+exports.handler = async event => {
+	try {
+		const broadcast = await broadcastSchema.validateAsync(event.body);
+		// Check the template exists by trying to fetch it
+		await ses.getTemplate({ TemplateName: broadcast.TemplateName }).promise();
+		const isDoingBroadcastResponse = await dynamodb
+			.get({
 				TableName: `${dbTablePrefix}Settings`,
-				Item: {
-					settingName: 'pendingBroadcast',
-					value: opts
-				}
+				settingName: 'isDoingBroadcast',
 			})
-			.then(() => resolve())
-			.catch(err => reject(err))
+			.promise();
+		if (
+			isDoingBroadcastResponse.Item &&
+			isDoingBroadcastResponse.Item.isDoingBroadcast
+		) {
+			throw new Error('A broadcast is already in progress. Try again later.');
 		}
-	)))
-	.then(() => callback(null, response(200, 'OK')))
-	.catch(err => {
-		console.log(`Error sending broadcast: ${err.message}`)
-		return callback(null, response(500, err.message))
-	})
-}
+		await dynamodb.put({
+			TableName: `${dbTablePrefix}Settings`,
+			Item: {
+				settingName: 'pendingBroadcast',
+				value: broadcast,
+			},
+		}).promise();
+		return response(200, JSON.stringify('OK'));
+	} catch (err) {
+		console.error(err);
+		return response(
+			err.statusCode || 500,
+			JSON.stringify(err.message || 'Error')
+		);
+	}
+};
