@@ -1,20 +1,18 @@
-const dynamodb = require('dynopromise-client')
-const batchWriteUntilDone = require('dynopromise-batchwriteuntildone')
+const AWS = require('aws-sdk')
+const { queryAllForDynamoDB } = require('query-all-for-dynamodb');
+const { writeAllForDynamoDB } = require('write-all-for-dynamodb');
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
-let dbConfig = null
-if (process.env.TEST_AWS_DB_ENDPOINT && process.env.TEST_AWS_REGION) {
-	dbConfig = {
-		region: process.env.TEST_AWS_REGION,
-		endpoint: process.env.TEST_AWS_DB_ENDPOINT,
-	}
-}
-
-const db = dbConfig ? dynamodb(dbConfig) : dynamodb()
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const uuidv4Pattern =
 /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
 
+/**
+ * Returns a response with HTTP details
+ * @param {number} statusCode 
+ * @param {string} message 
+ */
 const response = (statusCode, message = '') => {
 	return {
 		statusCode: statusCode,
@@ -26,67 +24,49 @@ const response = (statusCode, message = '') => {
 	}
 }
 
-exports.handler = (event, context, callback) => {
-	const subscriberId = event.queryStringParameters['subscriberId']
-	if (uuidv4Pattern.test(subscriberId) !== true) {
-		return callback(null, response(400, 'Invalid ID'))
-	}
-	db.query({
-		TableName: `${dbTablePrefix}Queue`,
-		IndexName: 'subscriberId-index',
-		KeyConditionExpression: '#subscriberId = :subscriberId',
-		FilterExpression: '#queuePlacement = :queued',
-		ExpressionAttributeNames: {
-			'#subscriberId': 'subscriberId',
-			'#queuePlacement': 'queuePlacement',
-		},
-		ExpressionAttributeValues: {
-			':subscriberId': subscriberId,
-			':queued': 'queued',
-		},
-	})
-	.then(queueResults => {
-		if (!(queueResults && queueResults.Items && queueResults.Items.length)) {
-			return Promise.resolve()
+exports.handler = async event => {
+	try {
+		const subscriberId = event.queryStringParameters['subscriberId']
+		if (uuidv4Pattern.test(subscriberId) !== true) {
+			return response(400, 'Invalid subscriber id')
 		}
-		const queueItems = queueResults.Items
-		const putRequests = []
-		queueItems.forEach(item => {
-			putRequests.push({
-				DeleteRequest: {
-					Key: {
-						queuePlacement: item.queuePlacement,
-						runAtModified: item.runAtModified,
-					}
+		const itemsResponse = await queryAllForDynamoDB(dynamodb, {
+			TableName: `${dbTablePrefix}Queue`,
+			IndexName: 'subscriberId-index',
+			KeyConditionExpression: '#subscriberId = :subscriberId',
+			FilterExpression: '#queuePlacement = :queued',
+			ExpressionAttributeNames: {
+				'#subscriberId': 'subscriberId',
+				'#queuePlacement': 'queuePlacement',
+			},
+			ExpressionAttributeValues: {
+				':subscriberId': subscriberId,
+				':queued': 'queued',
+			},
+		});
+		const queueItems = itemsResponse.Count && queueItems.Items
+		if (Array.isArray(queueItems)) {
+			await writeAllForDynamoDB(dynamodb, {
+				RequestItems: {
+					[`${dbTablePrefix}Queue`]: queueItems.map(item => ({
+						DeleteRequest: {
+							Key: {
+								queuePlacement: item.queuePlacement,
+								runAtModified: item.runAtModified,
+							}
+						}
+					}))
 				}
 			})
-		})
-
-		const batchThreshold = 25
-		const batches = []
-		let currentBatch = []
-		putRequests.forEach(putRequest => {
-			if (currentBatch.length === batchThreshold) {
-				batches.push(currentBatch)
-				currentBatch = []
-			}
-			currentBatch.push(putRequest)
-		})
-		batches.push(currentBatch)
-		return Promise.all(batches.map(batch => batchWriteUntilDone(
-			db,
-			{ Queue: batch }
-		)))
-	})
-	.then(() => db.delete({
-		TableName: `${dbTablePrefix}Subscribers`,
-		Key: {
-			subscriberId: subscriberId
 		}
-	}))
-	.then(() => callback(null, response(204)))
-	.catch(err => {
-		console.log(`Error deleting subscriber: ${err.message}`)
-		callback(null, response(500))
-	})
+		await dynamodb.delete({
+			TableName: `${dbTablePrefix}Subscribers`,
+			Key: { subscriberId: subscriberId }
+		}).promise()
+		return response(204)
+	}
+	catch (err) {
+			console.error(err)
+			return response(500, JSON.stringify(err.message))
+	}
 }
