@@ -4,7 +4,7 @@ const {
 	createReadStream,
 	createWriteStream
 } = require('fs');
-const { sep, join } = require('path');
+const { sep, join, resolve } = require('path');
 const exec = require('util').promisify(require('child_process').exec);
 const rimraf = require('rimraf');
 const archiver = require('archiver');
@@ -85,7 +85,11 @@ const run = async () => {
 					i.isDirectory() && existsSync(`./${sep}${i.name}${sep}package.json`)
 			)
 			.map(i => i.name);
-		return await Promise.all(files.map(async file => {
+		const targetFolderInput = process.argv[2] && resolve(process.argv[2])
+		let targetFolders = targetFolderInput ? files.filter(file => {
+			return resolve(file) === targetFolderInput;
+		}) : files;
+		return await Promise.all(targetFolders.map(async file => {
 			const dir = join(process.cwd(), file);
 			await deleteNodeModulesFolder(dir);
 			await runDockerNpmInstall(dir);
