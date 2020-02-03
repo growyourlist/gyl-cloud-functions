@@ -1,22 +1,44 @@
-exports.authorizer = async (event) => {
-	console.log(JSON.stringify(event))
-	const headers = event.headers
-	if (headers.Test === process.env.ApiAuthKeyHash) {
+const brcypt = require('bcrypt');
+
+exports.authorizer = async event => {
+	const headers = event.headers;
+	const match = await brcypt.compare(
+		headers['X-Gyl-Auth-Key'],
+		process.env.ApiAuthKeyHash
+	);
+	if (match) {
 		return {
-			principalId: 'me',
+			principalId: 'gyl-admin',
 			policyDocument: {
 				Version: '2012-10-17',
 				Statement: [
 					{
 						Action: 'execute-api:Invoke',
 						Effect: 'Allow',
-						Resource: event.methodArn
-					}
-				]
-			}
-		}
+						Resource: `${event.methodArn
+							.split('/')
+							.slice(0, 1)
+							.join()}/*`,
+					},
+				],
+			},
+		};
+	} else {
+		return {
+			principalId: 'gyl-admin',
+			policyDocument: {
+				Version: '2012-10-17',
+				Statement: [
+					{
+						Action: 'execute-api:Invoke',
+						Effect: 'Deny',
+						Resource: `${event.methodArn
+							.split('/')
+							.slice(0, 1)
+							.join()}/*`,
+					},
+				],
+			},
+		};
 	}
-	else {
-		return '401 Unauthorized'
-	}
-}
+};

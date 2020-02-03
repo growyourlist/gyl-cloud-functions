@@ -7,5 +7,7 @@
   },
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {
+    "bcrypt": "^3.0.7"
+  }
 }
