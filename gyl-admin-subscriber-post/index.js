@@ -56,9 +56,8 @@ const addSubscriberSchema = ExtJoi.object({
 }).unknown(true);
 
 // Schema to validate triggers
-const triggerSchema = Joi.allow(null, undefined)
-	.object({
-		triggerType: Joi.valid('confirmation', 'autoresponder'),
+const triggerSchema = Joi.object({
+		triggerType: Joi.string().valid('confirmation', 'autoresponder'),
 		triggerId: Joi.when('triggerType', {
 			is: 'autoresponder',
 			then: Joi.string()
@@ -95,7 +94,7 @@ const getSubscriberIdByEmail = email =>
 const getSubscriberFull = subscriberId =>
 	dynamodb
 		.get({
-			TableName: 'Subscribers',
+			TableName: `${dbTablePrefix}Subscribers`,
 			Key: { subscriberId },
 		})
 		.promise()
@@ -285,11 +284,11 @@ const runTrigger = async (params, subscriber) => {
  */
 exports.handler = async event => {
 	try {
-		const subscriberInput = await addSubscriberSchema.validateAsyc(
+		const subscriberInput = await addSubscriberSchema.validateAsync(
 			JSON.parse(event.body)
 		);
-		const trigger = await triggerSchema.validateAsyc(
-			event.queryStringParameters
+		const trigger = event.queryStringParameters && (
+			await triggerSchema.validateAsync(event.queryStringParameters)
 		);
 		const { email } = subscriberInput;
 		const existingSubscriber = await getSubscriberIdByEmail(email);
@@ -298,26 +297,25 @@ exports.handler = async event => {
 			await runTrigger(trigger, fullSubscriber);
 			return response(200, JSON.stringify('Added'));
 		} else {
-			const fullSubscriber = getSubscriberFull(existingSubscriber.subscriberId);
+			const fullSubscriber = await getSubscriberFull(existingSubscriber.subscriberId);
 			let hasAllTags = checkHasAllTags(
 				fullSubscriber.tags,
 				subscriberInput.tags
 			);
-			if (!hasAllTags) {
-				fullSubscriber.tags = mergeTags(
-					fullSubscriber.tags,
-					subscriberInput.tags
-				);
-			}
+			const tagsUpdate = hasAllTags ? existingSubscriber.tags : mergeTags(
+				fullSubscriber.tags,
+				subscriberInput.tags
+			);
 			const updatedSubscriber = Object.assign(
 				{},
 				fullSubscriber,
-				subscriberInput
+				subscriberInput,
+				{ tags: tagsUpdate },
 			);
 			await dynamodb
 				.put({
-					TableName: 'Subscribers',
-					Item: fullSubscriber,
+					TableName: `${dbTablePrefix}Subscribers`,
+					Item: updatedSubscriber,
 				})
 				.promise();
 			if (!hasAllTags) {
@@ -327,7 +325,7 @@ exports.handler = async event => {
 				dynamodb,
 				{
 					TableName: `${dbTablePrefix}Queue`,
-					IndexName: 'subscriberId-index',
+					IndexName: 'SubscriberIdIndex',
 					KeyConditionExpression: '#subscriberId = :subscriberId',
 					FilterExpression: '#queuePlacement = :queued',
 					ExpressionAttributeNames: {
@@ -344,7 +342,7 @@ exports.handler = async event => {
 			if (Array.isArray(queueInfoItems) && queueInfoItems.length) {
 				const queueResponse = await dynamodb.batchGet({
 					RequestItems: {
-						Queue: {
+						[`${dbTablePrefix}Queue`]: {
 							Keys: queueInfoItems.slice(0, 100).map(item => ({
 								queuePlacement: item.queuePlacement,
 								runAtModified: item.runAtModified,
