@@ -2,6 +2,7 @@ const AWS = require('aws-sdk');
 const { queryAllForDynamoDB } = require('query-all-for-dynamodb');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 exports.handler = async event => {
 	try {
@@ -23,7 +24,7 @@ exports.handler = async event => {
 		const { email } = event.queryStringParameters;
 		const subscriberStatusResponse = await dynamodb
 			.query({
-				TableName: 'Subscribers',
+				TableName: `${dbTablePrefix}Subscribers`,
 				KeyConditionExpression: '#email = :email',
 				IndexName: 'EmailToStatusIndex',
 				ExpressionAttributeNames: {
@@ -52,8 +53,8 @@ exports.handler = async event => {
 		// Fetch the history for the subscriber.
 		const { subscriberId } = subscriberStatusResponse.Items[0];
 		const historyResponse = await queryAllForDynamoDB(dynamodb, {
-			TableName: 'Queue',
-			IndexName: 'subscriberIdAndTagReason-index',
+			TableName: `${dbTablePrefix}Queue`,
+			IndexName: 'SubscriberIdIndex',
 			KeyConditionExpression: '#subscriberId = :subscriberId',
 			ExpressionAttributeNames: {
 				'#subscriberId': 'subscriberId',
@@ -68,7 +69,7 @@ exports.handler = async event => {
 		const itemDetails = await dynamodb
 			.batchGet({
 				RequestItems: {
-					Queue: {
+					[`${dbTablePrefix}Queue`]: {
 						Keys: history.map(item => {
 							const { queuePlacement, runAtModified } = item;
 							return { queuePlacement, runAtModified };
