@@ -1,15 +1,17 @@
 {
   "name": "gyl-admin-autoresponder-post",
-  "description": "Adds an autoresponder.",
+  "description": "Posts an autoresponder.",
   "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
-  "main": "index.js",
   "author": "gyl-dev <gyl-dev@posteo.eu>",
-  "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@hapi/joi": "^17.1.0"
+  },
   "peerDependencies": {
-    "aws-sdk": "^2.611.0"
+    "aws-sdk": "^2.610.0"
   }
 }
