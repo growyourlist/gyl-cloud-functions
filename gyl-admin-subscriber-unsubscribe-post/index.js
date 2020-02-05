@@ -18,7 +18,7 @@ const unsubscribeSchema = Joi.object({
  * @return {Promise<Object>}
  */
 const getSubscriberIdByEmail = async email => {
-	const subscriberResponse = await dynamodb({
+	const subscriberResponse = await dynamodb.query({
 		TableName: `${dbTablePrefix}Subscribers`,
 		IndexName: 'EmailToStatusIndex',
 		KeyConditionExpression: 'email = :email',
@@ -59,7 +59,7 @@ const unsubscribeSubscriber = async subscriberId => {
 		ExpressionAttributeValues: { ':true': true },
 	}).promise()
 	const queueResponse = await dynamodb.query({
-		TableName: 'Queue',
+		TableName: `${dbTablePrefix}Queue`,
 		IndexName: 'SubscriberIdIndex',
 		KeyConditionExpression: '#subscriberId = :subscriberId',
 		FilterExpression: '#queuePlacement = :queued',
