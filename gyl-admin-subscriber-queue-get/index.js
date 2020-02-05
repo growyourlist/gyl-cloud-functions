@@ -64,6 +64,16 @@ exports.handler = async event => {
 			},
 		});
 		let history = (historyResponse.Items || [])
+		if (!history.length) {
+			return {
+				statusCode: 200,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify([]),
+			}
+		}
 		history.sort((a, b) => b.runAt - a.runAt);
 		history = history.slice(0, 100)
 		const itemDetails = await dynamodb
