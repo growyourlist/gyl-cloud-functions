@@ -1,0 +1,17 @@
+{
+  "name": "gyl-admin-broadcast-post",
+  "description": "Triggers a broadcast.",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
+  },
+  "dependencies": {
+    "@hapi/joi": "^17.1.0"
+  }
+}
