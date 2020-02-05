@@ -1,14 +1,15 @@
 {
-  "name": "gyl-admin-email-analytics-get",
-  "version": "0.0.1",
-  "description": "Returns analytics for an email.",
+  "name": "gyl-admin-single-email-send-post",
+  "description": "Sends a single email",
+  "version": "0.1.0",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
   "main": "index.js",
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
-  "dependencies": {
-    "full-query-for-dynamodb": "0.0.1"
+  "dependencies": {},
+  "peerDependencies": {
+    "aws-sdk": "^2.612.0"
   }
 }

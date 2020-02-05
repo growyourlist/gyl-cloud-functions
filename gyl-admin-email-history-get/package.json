@@ -1,6 +1,6 @@
 {
-  "name": "gyl-admin-broadcast-start",
-  "description": "Starts a broadcast.",
+  "name": "gyl-admin-email-history-get",
+  "description": "Gets a history of emails that have been sent.",
   "version": "0.1.0",
   "main": "index.js",
   "license": "MIT",
@@ -8,10 +8,8 @@
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
   "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "dependencies": {},
   "peerDependencies": {
-    "aws-sdk": "^2.610.0"
-  },
-  "dependencies": {
-    "@hapi/joi": "^17.1.0"
+    "aws-sdk": "^2.611.0"
   }
 }
