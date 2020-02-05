@@ -21,7 +21,7 @@ const response = (statusCode, body) => {
 
 const getHtml = doc => {
 	try {
-		return parse5.serialize(doc.childNodes[1].childNodes[1])
+		return parse5.serialize(doc.childNodes[1].childNodes[1].childNodes[0])
 	}
 	catch (err) {
 		return ''
@@ -45,7 +45,7 @@ const getTemplate = async templateName => {
 
 exports.handler = async event => {
 	try {
-		const templateName = event.queryStringParameters['template-name']
+		const templateName = event.queryStringParameters['templateName']
 		if (!templateName) {
 			return response(400, null)
 		}
