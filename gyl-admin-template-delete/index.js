@@ -32,7 +32,7 @@ exports.handler = async event => {
 		}
 		const { TemplateName } = templateData
 		await ses.deleteTemplate({ TemplateName }).promise()
-		return response(200, JSON.stringify('OK'));
+		return response(204, '');
 	} catch (err) {
 		console.error(err)
 		return response(500, JSON.stringify(err.message));
