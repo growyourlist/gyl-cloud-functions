@@ -4,7 +4,16 @@ const ses = new AWS.SES()
 exports.handler = async (event) => {
 	try {
 		let requestBody = null
-		requestBody = JSON.parse(event.body)
+		try {
+			requestBody = JSON.parse(event.body)
+		}
+		catch (err) {
+			return {
+				statusCode: 400,
+				headers: { 'Access-Control-Allow-Origin': '*' },
+				body: JSON.stringify(err.message)
+			}
+		}
 		const Body = {}
 		if (typeof requestBody.body === 'string') {
 			if (requestBody.body.trim().indexOf('html>') >= 0) {
@@ -34,8 +43,7 @@ exports.handler = async (event) => {
 				}
 			}
 		}
-		console.log(Body)
-		await (new Promise((resolve, reject) => ses.sendEmail({
+		await ses.sendEmail({
 			Destination: {
 				ToAddresses: [ requestBody.toEmailAddress ],
 			},
@@ -47,12 +55,7 @@ exports.handler = async (event) => {
 				},
 				Body,
 			},
-		}, (err, data) => {
-			if (err) {
-				return reject(err)
-			}
-			resolve(data)
-		})))
+		}).promise()
 		const response = {
 			statusCode: 200,
 			headers: { 'Access-Control-Allow-Origin': '*' },
