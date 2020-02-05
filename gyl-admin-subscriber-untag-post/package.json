@@ -1,0 +1,17 @@
+{
+  "name": "gyl-admin-subscriber-untag-post",
+  "description": "Removes a tag to a subscriber",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "license": "MIT",
+  "dependencies": {
+    "@hapi/joi": "^17.1.0"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.610.0"
+  }
+}
