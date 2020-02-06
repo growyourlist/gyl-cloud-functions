@@ -124,7 +124,7 @@ exports.handler = async event => {
 		return {
 			statusCode: 200,
 			headers: { 'Access-Control-Allow-Origin': '*' },
-			body: `List ${verb}.`,
+			body: JSON.stringify(`List ${verb}`),
 		};
 	} catch (err) {
 		if (err.statusCode !== 400) {
