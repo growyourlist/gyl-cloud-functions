@@ -154,7 +154,7 @@ const sendConfirmationEmail = async (subscriberData, templateId = null) => {
 	const realTemplateId = templateId || 'Confirmation';
 	const templateParams = {
 		Destination: { ToAddresses: [subscriberData.email] },
-		ConfigurationSetName: 'Default',
+		ConfigurationSetName: 'GylSesConfigurationSet',
 		Source: process.env.SOURCE_EMAIL,
 		Template: realTemplateId,
 		TemplateData: JSON.stringify({
