@@ -88,7 +88,7 @@ exports.handler = async event => {
 				},
 			})
 			.promise();
-		const fullItems = (itemDetails.Responses.Queue || [])
+		const fullItems = (itemDetails.Responses[`${dbTablePrefix}Queue`] || [])
 		return {
 			statusCode: 200,
 			headers: {

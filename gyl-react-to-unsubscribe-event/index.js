@@ -122,7 +122,7 @@ exports.handler = async event => {
 								dynamodb
 									.batchWrite({
 										RequestItems: {
-											Queue: batch,
+											[`${dbTablePrefix}Queue`]: batch,
 										},
 									})
 									.promise()

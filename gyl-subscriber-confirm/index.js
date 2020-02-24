@@ -157,7 +157,7 @@ const runTriggeredAutoresponders = async subscriber => {
 	await dynamodb
 		.batchWrite({
 			RequestItems: {
-				Queue: batch,
+				[`${dbTablePrefix}Queue`]: batch,
 			},
 		})
 		.promise();
