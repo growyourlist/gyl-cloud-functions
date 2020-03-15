@@ -1,60 +1,138 @@
-const AWS = require('aws-sdk')
-const ses = new AWS.SES()
+const AWS = require('aws-sdk');
+const Joi = require('@hapi/joi');
+
+const uuid = require('uuid');
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
+
+const sendSingleEmailSchema = Joi.object({
+	toEmailAddress: Joi.string().email().required(),
+	subject: Joi.allow('').string().required(),
+	body: Joi.object({
+		text: Joi.allow('').string(),
+		html: Joi.allow('').string(),
+	}).unknown(false).or('body', 'html').required(),
+	opts: Joi.object({
+		fromEmailAddress: Joi.allow('').string(),
+		// Only allow scheduling up to a year in advance
+		waitInSeconds: Joi.number().min(0).max(31708800),
+		tagReason: Joi.array().items(Joi.string().regex(/^[\w-]+$/).min(1).max(128)),
+		autoSaveUnknownSubscriber: Joi.boolean(),
+	}).unknown(false).required(),
+}).unknown(false).required();
+
+const badRequest = message => {
+	return {
+		statusCode: 400,
+		headers: { 'Access-Control-Allow-Origin': '*' },
+		body: JSON.stringify(message)
+	}
+}
+
+/**
+ * Creates a new queue item.
+ */
+const newQueueItem = (itemData, waitInSeconds) => {
+	const runAt = Date.now() + (waitInSeconds * 1000)
+	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`
+	return Object.assign({}, itemData, {
+		queuePlacement: 'queued',
+		runAtModified: runAtModified,
+		runAt,
+		attempts: 0,
+		failed: false,
+		completed: false,
+	})
+}
+
+/**
+ * Gets or creates the subscriber with the given email address.
+ * @param {string} email 
+ */
+const getOrCreateSubscriber = async (email, opts = {}) => {
+	const statusResponse = await dynamodb.query({
+		TableName: `${dbTablePrefix}Subscribers`,
+		IndexName: 'EmailToStatusIndex',
+		KeyConditionExpression: 'email = :email',
+		ExpressionAttributeValues: { ':email': email.toLocaleLowerCase() },
+	}).promise()
+	const status = statusResponse.Count && statusResponse.Items[0];
+	if (!status) {
+		const subscriber = {
+			subscriberId: uuid.v4(),
+			email: email.toLocaleLowerCase(),
+			displayEmail: email,
+			confirmed: false,
+			unsubscribed: false,
+			joined: Date.now(),
+			confirmationToken: uuid.v4(),
+		}
+		if (opts.autoSaveUnknownSubscriber) {
+			await dynamodb.put({
+				TableName: `${dbTablePrefix}Subscribers`,
+				Item: subscriber,
+			}).promise()
+		}
+		return subscriber;
+	}
+	else {
+		const subscriberResponse = await dynamodb.get({
+			TableName: `${dbTablePrefix}Subscribers`,
+			Key: { subscriberId: status.subscriberId },
+		}).promise()
+		if (!subscriberResponse.Item) {
+			// The subscriber existed less than a second ago, but not anymore...
+			const newId = uuid.v4();
+			console.warn('Creating subscriber after they existed a second ago. Old ' +
+				`id: ${status.subscriberId} new id: ${newId}`)
+			const subscriber = {
+				subscriberId: newId,
+				email: email.toLocaleLowerCase(),
+				displayEmail: email,
+				confirmed: false,
+				unsubscribed: false,
+				joined: Date.now(),
+				confirmationToken: uuid.v4(),
+			}
+			if (opts.autoSaveUnknownSubscriber) {
+				await dynamodb.put({
+					TableName: `${dbTablePrefix}Subscribers`,
+					Item: subscriber,
+				}).promise()
+			}
+			return subscriber;
+		}
+		return subscriberResponse.Item;
+	}
+}
 
 exports.handler = async (event) => {
 	try {
 		let requestBody = null
 		try {
-			requestBody = JSON.parse(event.body)
+			requestBody = await sendSingleEmailSchema.validateAsync(
+				JSON.parse(event.body)
+			)
 		}
 		catch (err) {
-			return {
-				statusCode: 400,
-				headers: { 'Access-Control-Allow-Origin': '*' },
-				body: JSON.stringify(err.message)
-			}
+			return badRequest(err.message);
 		}
-		const Body = {}
-		if (typeof requestBody.body === 'string') {
-			if (requestBody.body.trim().indexOf('html>') >= 0) {
-				Body.Html = {
-					Data: requestBody.body.trim(),
-					Charset: "UTF-8",
-				}
-			}
-			else {
-				Body.Text = {
-					Data: requestBody.body,
-					Charset: "UTF-8",
-				}
-			}
-		}
-		else if (typeof requestBody.body === 'object') {
-			if (requestBody.body.html) {
-				Body.Html = {
-					Data: requestBody.body.html,
-					Charset: 'UTF-8',
-				}
-			}
-			if (requestBody.body.text) {
-				Body.Text = {
-					Data: requestBody.body.text,
-					Charset: 'UTF-8',
-				}
-			}
-		}
-		await ses.sendEmail({
-			Destination: {
-				ToAddresses: [ requestBody.toEmailAddress ],
-			},
-			Source: requestBody.fromEmailAddress || process.env.SOURCE_EMAIL_ADDRESS,
-			Message: {
-				Subject: {
-					Data: requestBody.subject,
-					Charset: 'UTF-8'
+		const email = requestBody.toEmailAddress;
+		const subscriber = await getOrCreateSubscriber(email);
+		await dynamodb.put({
+			TableName: `${dbTablePrefix}Queue`,
+			Item: newQueueItem(
+				{
+					type: 'send email',
+					subscriber,
+					subscriberId: subscriber.subscriberId,
+					subject: requestBody.subject,
+					body: requestBody.body,
+					sourceEmail: requestBody.fromEmailAddress || process.env.SOURCE_EMAIL_ADDRESS,
+					tagReason: requestBody.tagReason,
 				},
-				Body,
-			},
+				requestBody.waitInSeconds || 0
+			)
 		}).promise()
 		const response = {
 			statusCode: 200,

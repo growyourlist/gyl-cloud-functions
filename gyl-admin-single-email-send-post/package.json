@@ -8,8 +8,11 @@
   "main": "index.js",
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@hapi/joi": "^17.1.0",
+    "uuid": "^7.0.2"
+  },
   "peerDependencies": {
-    "aws-sdk": "^2.612.0"
+    "aws-sdk": "^2.634.0"
   }
 }
