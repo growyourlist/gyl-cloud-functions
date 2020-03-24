@@ -28,7 +28,6 @@ const ExtJoi = Joi.extend(joi => ({
 // Schema to validate incoming add subscriber requests from userland.
 const addSubscriberSchema = ExtJoi.object({
 	email: ExtJoi.string()
-		.lowercase()
 		.email()
 		.required(),
 	timezone: ExtJoi.timezone(),
@@ -80,7 +79,7 @@ const getSubscriberIdByEmail = email =>
 			IndexName: 'EmailToStatusIndex',
 			KeyConditionExpression: 'email = :email',
 			ExpressionAttributeValues: {
-				':email': email,
+				':email': email.toLocaleLowerCase(),
 			},
 		})
 		.promise()
@@ -145,15 +144,17 @@ const saveSubscriber = async subscriberData => {
 
 /**
  * Sends confirmation email to the subscriber.
- * @param  {String} subscriberId
- * @param  {String} email
+ * @param  {Object} subscriberData
+ * @param  {String} templateId
  * @return {Promise}
  */
 const sendConfirmationEmail = async (subscriberData, templateId = null) => {
 	const confirmLink = `${process.env.API}subscriber/confirm/?t=`;
 	const realTemplateId = templateId || 'Confirmation';
 	const templateParams = {
-		Destination: { ToAddresses: [subscriberData.email] },
+		Destination: { ToAddresses: [(
+			subscriberData.displayEmail || subscriberData.email
+		)] },
 		ConfigurationSetName: 'GylSesConfigurationSet',
 		Source: process.env.SOURCE_EMAIL,
 		Template: realTemplateId,
@@ -291,8 +292,12 @@ exports.handler = async event => {
 			await triggerSchema.validateAsync(event.queryStringParameters)
 		);
 		const { email } = subscriberInput;
-		const existingSubscriber = await getSubscriberIdByEmail(email);
+		const existingSubscriber = await getSubscriberIdByEmail(
+			email.toLocaleLowerCase()
+		);
 		if (!existingSubscriber) {
+			subscriberInput.displayEmail = email;
+			subscriberInput.email = email.toLocaleLowerCase();
 			const fullSubscriber = await saveSubscriber(subscriberInput);
 			await runTrigger(trigger, fullSubscriber);
 			return response(200, JSON.stringify('Added'));

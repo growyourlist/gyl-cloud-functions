@@ -1,0 +1,12 @@
+{
+  "name": "gyl-ecosystem-analytics",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "peerDependencies": {
+    "aws-sdk": "^2.625.0"
+  },
+  "dependencies": {
+    "needle": "^2.3.3"
+  }
+}
