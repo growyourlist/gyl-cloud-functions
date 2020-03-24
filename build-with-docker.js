@@ -77,18 +77,18 @@ const zipLambdaPackage = async dir => {
 
 const run = async () => {
 	try {
-		const files = readdirSync(`.${sep}`, { withFileTypes: true })
+		const dirs = readdirSync(__dirname, { withFileTypes: true })
 			.filter(
 				// Get all the directories containing package.json files, as these
 				// should be the directories containing cloud function node packages.
 				i =>
-					i.isDirectory() && existsSync(`./${sep}${i.name}${sep}package.json`)
+					i.isDirectory() && existsSync(`${__dirname}${sep}${i.name}${sep}package.json`)
 			)
 			.map(i => i.name);
 		const targetFolderInput = process.argv[2] && resolve(process.argv[2])
-		let targetFolders = targetFolderInput ? files.filter(file => {
-			return resolve(file) === targetFolderInput;
-		}) : files;
+		let targetFolders = targetFolderInput ? dirs.filter(dir => {
+			return resolve(dir) === targetFolderInput;
+		}) : dirs;
 		let dirName = targetFolders.pop();
 		while (dirName) {
 			console.log(`Packing ${dirName}`);
