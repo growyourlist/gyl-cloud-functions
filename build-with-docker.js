@@ -89,12 +89,17 @@ const run = async () => {
 		let targetFolders = targetFolderInput ? files.filter(file => {
 			return resolve(file) === targetFolderInput;
 		}) : files;
-		return await Promise.all(targetFolders.map(async file => {
-			const dir = join(process.cwd(), file);
+		let dirName = targetFolders.pop();
+		while (dirName) {
+			console.log(`Packing ${dirName}`);
+			const dir = join(process.cwd(), dirName);
 			await deleteNodeModulesFolder(dir);
+			await new Promise(r => setTimeout(r, 500));
 			await runDockerNpmInstall(dir);
+			await new Promise(r => setTimeout(r, 500));
 			await zipLambdaPackage(dir);
-		}))
+			dirName = targetFolders.pop();
+		}
 	} catch (err) {
 		console.error(err);
 	}
