@@ -1,0 +1,15 @@
+{
+  "name": "gyl-admin-subscriber-status-get",
+  "description": "Gets the status of a subscriber",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "license": "MIT",
+  "dependencies": {},
+  "peerDependencies": {
+    "aws-sdk": "^2.646.0"
+  }
+}
