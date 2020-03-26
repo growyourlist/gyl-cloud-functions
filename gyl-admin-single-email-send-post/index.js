@@ -7,18 +7,21 @@ const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 const sendSingleEmailSchema = Joi.object({
 	toEmailAddress: Joi.string().email().required(),
-	subject: Joi.allow('').string().required(),
+	subject: Joi.string().allow('').required(),
 	body: Joi.object({
-		text: Joi.allow('').string(),
-		html: Joi.allow('').string(),
+		text: Joi.string().allow(''),
+		html: Joi.string().allow(''),
 	}).unknown(false).or('body', 'html').required(),
 	opts: Joi.object({
-		fromEmailAddress: Joi.allow('').string(),
+		fromEmailAddress: Joi.string().allow(''),
 		// Only allow scheduling up to a year in advance
 		waitInSeconds: Joi.number().min(0).max(31708800),
-		tagReason: Joi.array().items(Joi.string().regex(/^[\w-]+$/).min(1).max(128)),
+		tagReason: Joi.alternatives(
+			Joi.string().regex(/^[\w-]+$/).min(1).max(128),
+			Joi.array().items(Joi.string().regex(/^[\w-]+$/).min(1).max(128))
+		),
 		autoSaveUnknownSubscriber: Joi.boolean(),
-	}).unknown(false).required(),
+	}).unknown(false),
 }).unknown(false).required();
 
 const badRequest = message => {
@@ -117,8 +120,12 @@ exports.handler = async (event) => {
 		catch (err) {
 			return badRequest(err.message);
 		}
+		requestBody.opts = requestBody.opts || {};
+		if (typeof requestBody.opts.tagReason === 'string') {
+			requestBody.opts.tagReason = [requestBody.opts.tagReason];
+		}
 		const email = requestBody.toEmailAddress;
-		const subscriber = await getOrCreateSubscriber(email);
+		const subscriber = await getOrCreateSubscriber(email, requestBody.opts);
 		await dynamodb.put({
 			TableName: `${dbTablePrefix}Queue`,
 			Item: newQueueItem(
@@ -128,10 +135,10 @@ exports.handler = async (event) => {
 					subscriberId: subscriber.subscriberId,
 					subject: requestBody.subject,
 					body: requestBody.body,
-					sourceEmail: requestBody.fromEmailAddress || process.env.SOURCE_EMAIL_ADDRESS,
-					tagReason: requestBody.tagReason,
+					sourceEmail: requestBody.opts.fromEmailAddress || process.env.SOURCE_EMAIL_ADDRESS,
+					tagReason: requestBody.opts.tagReason || null,
 				},
-				requestBody.waitInSeconds || 0
+				requestBody.opts.waitInSeconds || 0
 			)
 		}).promise()
 		const response = {
