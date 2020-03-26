@@ -4,7 +4,7 @@ const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 // Schema to validate the triggering of a broadcast.
 const broadcastSchema = Joi.object({
-	templateName: Joi.string()
+	templateId: Joi.string()
 		.regex(/^[\w-]+$/)
 		.required(),
 	list: Joi.string()
@@ -63,7 +63,7 @@ exports.handler = async event => {
 		} catch (err) {
 			return response(400, `Bad request: ${err.message}`);
 		}
-		const TemplateName = broadcast.templateName;
+		const TemplateName = broadcast.templateId;
 		// Check the template exists by trying to fetch it
 		await ses.getTemplate({ TemplateName }).promise();
 		const isDoingBroadcastResponse = await dynamodb
