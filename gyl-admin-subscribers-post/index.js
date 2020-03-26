@@ -88,14 +88,24 @@ exports.handler = async event => {
 				'overwritten in current implementation.');
 		}
 
+		const useDefaultConfirmedValue = typeof opts.defaultConfirmedValue !== 'undefined'
 		await writeAllForDynamoDB(dynamodb, {
 			RequestItems: {
 				[`${dbTablePrefix}Subscribers`]: subscribers.map(subscriber => {
+
+					let confirmed = true
+					if (useDefaultConfirmedValue) {
+						confirmed = opts.defaultConfirmedValue
+					}
+					if (typeof subscriber.confirmed !== 'undefined') {
+						confirmed = subscriber.confirmed
+					}
+
 					const fullSubscriber = Object.assign({}, subscriber, {
 						displayEmail: subscriber.email,
 						email: subscriber.email.toLocaleLowerCase(),
 						subscriberId: uuidv4(),
-						confirmed: subscriber.confirmed || opts.defaultConfirmedValue || false,
+						confirmed,
 						unsubscribed: subscriber.unsubscribed || opts.defaultUnsubscribedValue || false,
 						joined: subscriber.joined || Date.now(),
 						confirmationToken: uuidv4(),
