@@ -19,6 +19,6 @@
     "write-all-for-dynamodb": "^0.0.3"
   },
   "peerDependencies": {
-    "aws-sdk": "^2.635.0"
+    "aws-sdk": "^2.646.0"
   }
 }
