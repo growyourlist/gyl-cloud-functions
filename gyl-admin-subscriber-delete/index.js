@@ -66,7 +66,7 @@ exports.handler = async event => {
 				':queued': 'queued',
 			},
 		});
-		const queueItems = itemsResponse.Count && queueItems.Items;
+		const queueItems = itemsResponse.Count && itemsResponse.Items;
 		if (Array.isArray(queueItems) && queueItems.length) {
 			await writeAllForDynamoDB(dynamodb, {
 				RequestItems: {
