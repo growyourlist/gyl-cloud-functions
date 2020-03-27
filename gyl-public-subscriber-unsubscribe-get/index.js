@@ -60,12 +60,13 @@ const getUrlParams = (status, unsubscribeToken, listSettings) => {
 		}
 	});
 	const unsubParams = {
+		unsubscribed: status.unsubscribed,
 		email,
 		lists,
 		unsubscribeTokenValue: unsubscribeToken.value,
 		api: process.env.PUBLIC_API,
 	};
-	return encodeURIComponent(JSON.stringify(unsubParams));
+	return `p=${encodeURIComponent(JSON.stringify(unsubParams))}`;
 }
 
 const getLists = async () => {
@@ -80,19 +81,11 @@ const addUnsubscribeTokenToUser = async (subscriberId, unsubscribeToken) => {
 	await dynamodb.update({
 		TableName: `${dbTablePrefix}Subscribers`,
 		Key: { subscriberId },
-		UpdateExpression: 'SET #unsubscribeToken = :unsubscribeToken, ' +
-			'#unsubscribeTokenTimestamp = :unsubscribeTokenTimestamp',
+		UpdateExpression: 'SET #unsubscribeToken = :unsubscribeToken',
 		KeyConditionExpression: 'attribute_exists(#subscriberId)',
-		ExpressionAttributeNames: {
-			'#unsubscribeToken': 'unsubscribeToken',
-			'#subscriberId': 'subscriberId',
-			'#unsubscribeTokenTimestamp': 'unsubscribeTokenTimestamp',
-		},
-		ExpressionAttributeValues: {
-			':unsubToken': unsubscribeToken,
-			':unsubscribeTokenTimestamp': Date.now(),
-		}
-	})
+		ExpressionAttributeNames: { '#unsubscribeToken': 'unsubscribeToken' },
+		ExpressionAttributeValues: { ':unsubscribeToken': unsubscribeToken },
+	}).promise();
 }
 
 const generateUnsubscribeToken = () => {
@@ -115,6 +108,7 @@ const getCurrentOrNewUnsubscribeToken = async (status) => {
 			created: Date.now(),
 		};
 		await addUnsubscribeTokenToUser(subscriberId, newUnsubscribeToken);
+		return newUnsubscribeToken;
 	}
 	// The current unsubscribe token can be used.
 	return unsubscribeToken;
