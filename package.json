@@ -1,6 +1,6 @@
 {
   "name": "gyl-cloud-functions",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "main": "index.js",
   "repository": "https://github.com/growyourlist/gyl-cloud-functions.git",
   "author": "gyl-dev <gyl-dev@posteo.eu>",
