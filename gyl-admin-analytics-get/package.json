@@ -10,5 +10,8 @@
   "license": "MIT",
   "dependencies": {
     "full-query-for-dynamodb": "0.0.1"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.646.0"
   }
 }
