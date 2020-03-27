@@ -18,6 +18,12 @@ const broadcastSchema = Joi.object({
 			.min(1)
 			.max(128)
 	),
+	excludeTags: Joi.array().items(
+		Joi.string()
+			.regex(/^[\w-]+$/)
+			.min(1)
+			.max(128)
+	),
 	properties: Joi.object(),
 	runAt: Joi.number()
 		.allow(null)
