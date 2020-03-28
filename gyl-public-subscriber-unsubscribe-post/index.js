@@ -130,14 +130,20 @@ const unsubscribeSubscriberFromLists = async (subscriberStatus, listIds) => {
 			newTags.splice(tagIndex, 1);
 		}
 	});
-	await dynamodb
-		.update({
+	const subscriberUpdateParams = {
 			TableName: `${dbTablePrefix}Subscribers`,
 			Key: { subscriberId },
 			UpdateExpression: 'set #tags = :tags',
 			ExpressionAttributeNames: { '#tags': 'tags' },
 			ExpressionAttributeValues: { ':tags': newTags },
-		})
+	}
+	if (!newTags.length) {
+		subscriberUpdateParams.UpdateExpression += ', #unsubscribed = :unsubscribed';
+		subscriberUpdateParams.ExpressionAttributeNames['#unsubscribed'] = 'unsubscribed';
+		subscriberUpdateParams.ExpressionAttributeValues[':unsubscribed'] = true;
+	}
+	await dynamodb
+		.update(subscriberUpdateParams)
 		.promise();
 	const queryParams = {
 		TableName: `${dbTablePrefix}Queue`,
@@ -147,6 +153,7 @@ const unsubscribeSubscriberFromLists = async (subscriberStatus, listIds) => {
 		ExpressionAttributeNames: {
 			'#subscriberId': 'subscriberId',
 			'#queuePlacement': 'queuePlacement',
+			'#tagReason': 'tagReason',
 		},
 		ExpressionAttributeValues: {
 			':subscriberId': subscriberId,
@@ -155,7 +162,7 @@ const unsubscribeSubscriberFromLists = async (subscriberStatus, listIds) => {
 	};
 	queryParams['FilterExpression'] += listIds
 		.map((listId, index) => {
-			return `contains(#tags, :listId${index})`;
+			return `contains(#tagReason, :listId${index})`;
 		})
 		.join(' or ');
 	queryParams['FilterExpression'] += ')';
@@ -202,7 +209,7 @@ exports.handler = async event => {
 		if (unsubscribeData.allEmails) {
 			await unsubscribeSubscriberFromAll(status.subscriberId);
 		} else if (unsubscribeData.listIds.length) {
-			await unsubscribeSubscriberFromLists(status.subscriberId, status.listIds);
+			await unsubscribeSubscriberFromLists(status, unsubscribeData.listIds);
 		}
 		// Note: above conditions mean that if not unsubscribing from allEmails and
 		// there are no listIds to unsubscribe from, no action will be taken.
