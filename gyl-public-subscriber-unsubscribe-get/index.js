@@ -6,9 +6,8 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 const unsubscribeSchema = Joi.object({
-	email: Joi.string()
-		.lowercase()
-		.email()
+	id: Joi.string()
+		.guid()
 		.required(),
 });
 
@@ -17,19 +16,12 @@ const unsubscribeSchema = Joi.object({
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getSubscriberStatusByEmail = async email => {
-	const subscriberStatusResponse = await dynamodb.query({
+const getSubscriberStatus = async subscriberData => {
+	const subscriberResponse = await dynamodb.get({
 		TableName: `${dbTablePrefix}Subscribers`,
-		IndexName: 'EmailToStatusIndex',
-		KeyConditionExpression: 'email = :email',
-		ExpressionAttributeValues: {
-			':email': email,
-		},
+		Key: { subscriberId: subscriberData.id },
 	}).promise();
-	if (!subscriberStatusResponse.Count || !subscriberStatusResponse.Items[0]) {
-		return null;
-	}
-	return subscriberStatusResponse.Items[0];
+	return subscriberResponse.Item || null;
 };
 
 /**
@@ -127,7 +119,7 @@ exports.handler = async event => {
 		}
 
 		const [ status, lists ] = await Promise.all([
-			await getSubscriberStatusByEmail(unsubscribeData.email),
+			await getSubscriberStatus(unsubscribeData),
 			await getLists(),
 		]);
 		if (!status) {
