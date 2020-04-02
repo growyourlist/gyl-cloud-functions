@@ -8,10 +8,8 @@
   "main": "index.js",
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
-  "dependencies": {
-    "moment-timezone": "^0.5.27"
-  },
+  "dependencies": {},
   "peerDependencies": {
-    "aws-sdk": "^2.610.0"
+    "aws-sdk": "^2.652.0"
   }
 }
