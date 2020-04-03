@@ -114,14 +114,19 @@ const saveSubscriber = async subscriberData => {
  * @return {Promise}
  */
 const sendConfirmationEmail = async (subscriberData) => {
-	const confirmLink = `${process.env.PUBLIC_API}subscriber/confirm?t=${subscriberData.subscriberId}`;
+	const confirmLink = `${process.env.PUBLIC_API}/subscriber/confirm?t=${subscriberData.subscriberId}`;
+	const toAddress = subscriberData.displayEmail || subscriberData.email;
 	await ses.sendEmail({
 		Destination: {
-			ToAddresses: [( subscriberData.displayEmail || subscriberData.email )],
+			ToAddresses: [toAddress],
 		},
 		ConfigurationSetName: 'GylSesConfigurationSet',
 		Source: process.env.SOURCE_EMAIL,
 		Message: {
+			Subject: {
+				Charset: 'UTF-8',
+				Data: 'Confirm your subscription',
+			},
 			Body: {
 				Html: {
 					Charset: 'UTF-8',
@@ -134,7 +139,7 @@ const sendConfirmationEmail = async (subscriberData) => {
 </head>
 <body>
 	<p>Please confirm your subscription to this mailing list by clicking the link:</p>
-	<p href="${confirmLink}" rel="noreferrer noopener">${confirmLink}</p>
+	<p><a href="${confirmLink}" rel="noreferrer noopener">Confirm subscription</a></p>
 </body>
 </html>`
 				},
@@ -177,6 +182,7 @@ exports.handler = async event => {
 		const existingSubscriber = await getSubscriberIdByEmail(email);
 		if (!existingSubscriber) {
 			subscriberInput.displayEmail = email;
+			subscriberInput.tags = [];
 			subscriberInput.email = email.toLocaleLowerCase();
 			const fullSubscriber = await saveSubscriber(subscriberInput);
 			await sendConfirmationEmail(fullSubscriber);
