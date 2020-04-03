@@ -183,6 +183,9 @@ exports.handler = async event => {
 		if (!existingSubscriber) {
 			subscriberInput.displayEmail = email;
 			subscriberInput.tags = [];
+			if (process.env.DEFAULT_LIST && process.env.DEFAULT_LIST.startsWith('list-')) {
+				subscriberInput.tags.push(process.env.DEFAULT_LIST);
+			}
 			subscriberInput.email = email.toLocaleLowerCase();
 			const fullSubscriber = await saveSubscriber(subscriberInput);
 			await sendConfirmationEmail(fullSubscriber);
