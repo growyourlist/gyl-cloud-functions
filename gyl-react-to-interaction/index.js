@@ -65,6 +65,14 @@ const doTrigger = async (email, trigger, interaction) => {
 			'active',
 			addTag(tag, subscriberStatus.tags)
 		);
+		const autoConfirmTags = (process.env.autoConfirmTags && process.env.autoConfirmTags.split(','))
+		if (autoConfirmTags.indexOf(tag) >= 0) {
+			updateDef.UpdateExpression += ', #confirmed = :confirmed'
+			updateDef.ExpressionAttributeNames['#confirmed'] = 'confirmed'
+			updateDef.ExpressionAttributeValues[':confirmed'] = (
+				new Date()
+			).toISOString()
+		}
 	}
 	if (interaction === 'click') {
 		updateDef.UpdateExpression += ', #lastClick = :lastClick';
