@@ -9,7 +9,7 @@ const exec = require('util').promisify(require('child_process').exec);
 const rimraf = require('rimraf');
 const archiver = require('archiver');
 
-const errorPattern = /(\berr\b|\berror\b)/;
+const errorPattern = /(\berr\b|\berror\b)/i;
 const isVerbose = !!process.env.VERBOSE
 const Logger = {
 	info: message => {
@@ -45,8 +45,8 @@ const runDockerNpmInstall = async dir => {
 		`powershell -Command "docker run --rm -v ${dir}:/var/task ` +
 		'lambci/lambda:build-nodejs12.x npm install `"--silent`""';
 	const installOutput = await exec(cmd, { cwd: dir });
-	const lowercaseErr = installOutput.stderr.toLowerCase();
-	if (errorPattern.test(lowercaseErr)) {
+	const errOutput = installOutput.stderr;
+	if (errorPattern.test(errOutput)) {
 		throw new Error(
 			`Error found in npm install output:\n${installOutput.stderr}`
 		);
