@@ -2,6 +2,8 @@ const AWS = require('aws-sdk');
 const ses = new AWS.SES();
 const db = new AWS.DynamoDB.DocumentClient();
 
+const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
+
 /**
  * Attempts to parse request body JSON.
  * @param  {String} body Request body
@@ -65,7 +67,7 @@ const createOrUpdateTemplate = async (params) => {
 	try {
 		await db
 			.put({
-				TableName: 'GylTemplateHistory',
+				TableName: `${dbTablePrefix}TemplateHistory`,
 				Item: Object.assign({}, templateParams, {
 					Timestamp: Date.now(),
 				}),
