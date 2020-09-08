@@ -65,7 +65,7 @@ const doTrigger = async (email, trigger, interaction) => {
 			'active',
 			addTag(tag, subscriberStatus.tags)
 		);
-		if (process.env.AUTO_CONFIRM_TAGS) {
+		if (interaction === 'click' && process.env.AUTO_CONFIRM_TAGS) {
 			const autoTagsRaw = process.env.AUTO_CONFIRM_TAGS.split(',').map((t) =>
 				t.trim()
 			);
