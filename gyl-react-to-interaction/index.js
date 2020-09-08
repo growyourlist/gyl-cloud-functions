@@ -9,7 +9,7 @@ const tagPattern = /^add-tag_([a-zA-Z0-9_-]{1,248})$/;
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getSubscriberStatusByEmail = async email => {
+const getSubscriberStatusByEmail = async (email) => {
 	const response = await dynamodb
 		.query({
 			TableName: `${dbTablePrefix}Subscribers`,
@@ -65,13 +65,17 @@ const doTrigger = async (email, trigger, interaction) => {
 			'active',
 			addTag(tag, subscriberStatus.tags)
 		);
-		const autoConfirmTags = (process.env.autoConfirmTags && process.env.autoConfirmTags.split(','))
-		if (autoConfirmTags.indexOf(tag) >= 0) {
-			updateDef.UpdateExpression += ', #confirmed = :confirmed'
-			updateDef.ExpressionAttributeNames['#confirmed'] = 'confirmed'
-			updateDef.ExpressionAttributeValues[':confirmed'] = (
-				new Date()
-			).toISOString()
+		if (process.env.AUTO_CONFIRM_TAGS) {
+			const autoTagsRaw = process.env.AUTO_CONFIRM_TAGS.split(',').map((t) =>
+				t.trim()
+			);
+			if (autoTagsRaw.indexOf(tag) >= 0) {
+				updateDef.UpdateExpression += ', #confirmed = :confirmed';
+				updateDef.ExpressionAttributeNames['#confirmed'] = 'confirmed';
+				updateDef.ExpressionAttributeValues[
+					':confirmed'
+				] = new Date().toISOString();
+			}
 		}
 	}
 	if (interaction === 'click') {
@@ -154,7 +158,7 @@ const updateQueueItem = async (tags, interaction) => {
 	}
 };
 
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		const message = JSON.parse(event.Records[0].Sns.Message);
 		const interaction = message.eventType.toLowerCase(); // E.g. Open or Click
