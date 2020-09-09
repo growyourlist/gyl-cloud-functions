@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const Joi = require('@hapi/joi');
-const uuidv4 = require('uuid/v4');
+const uuid = require('uuid');
 const moment = require('moment-timezone');
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
@@ -10,7 +10,7 @@ const ses = new AWS.SES();
 // Extend Joi to include timezone validation.
 const minDate = new Date();
 minDate.setFullYear(minDate.getFullYear() - 130);
-const ExtJoi = Joi.extend(joi => ({
+const ExtJoi = Joi.extend((joi) => ({
 	type: 'timezone',
 	base: joi.string(),
 	messages: {
@@ -25,9 +25,7 @@ const ExtJoi = Joi.extend(joi => ({
 
 // Schema to validate incoming add subscriber requests from userland.
 const addSubscriberSchema = ExtJoi.object({
-	email: ExtJoi.string()
-		.email()
-		.required(),
+	email: ExtJoi.string().email().required(),
 }).unknown(false);
 
 /**
@@ -35,7 +33,7 @@ const addSubscriberSchema = ExtJoi.object({
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getSubscriberIdByEmail = email =>
+const getSubscriberIdByEmail = (email) =>
 	dynamodb
 		.query({
 			TableName: `${dbTablePrefix}Subscribers`,
@@ -46,21 +44,21 @@ const getSubscriberIdByEmail = email =>
 			},
 		})
 		.promise()
-		.then(results => {
+		.then((results) => {
 			if (!results.Count) {
 				return null;
 			}
 			return results.Items[0];
 		});
 
-const getSubscriberFull = subscriberId =>
+const getSubscriberFull = (subscriberId) =>
 	dynamodb
 		.get({
 			TableName: `${dbTablePrefix}Subscribers`,
 			Key: { subscriberId },
 		})
 		.promise()
-		.then(result => {
+		.then((result) => {
 			if (!result.Item) {
 				return null;
 			}
@@ -88,15 +86,15 @@ const response = (statusCode, body = '') => {
  * @param  {Object} subscriberData
  * @return {Promise}
  */
-const saveSubscriber = async subscriberData => {
+const saveSubscriber = async (subscriberData) => {
 	const now = Date.now();
 	const fullSubscriber = Object.assign({}, subscriberData, {
-		subscriberId: uuidv4(),
+		subscriberId: uuid.v4(),
 		confirmed: false,
 		unsubscribed: false,
 		joined: now,
 		lastConfirmation: now,
-		confirmationToken: uuidv4(),
+		confirmationToken: uuid.v4(),
 	});
 	await dynamodb
 		.put({
@@ -116,21 +114,22 @@ const saveSubscriber = async subscriberData => {
 const sendConfirmationEmail = async (subscriberData) => {
 	const confirmLink = `${process.env.PUBLIC_API}/subscriber/confirm?t=${subscriberData.subscriberId}`;
 	const toAddress = subscriberData.displayEmail || subscriberData.email;
-	await ses.sendEmail({
-		Destination: {
-			ToAddresses: [toAddress],
-		},
-		ConfigurationSetName: 'GylSesConfigurationSet',
-		Source: process.env.SOURCE_EMAIL,
-		Message: {
-			Subject: {
-				Charset: 'UTF-8',
-				Data: 'Confirm your subscription',
+	await ses
+		.sendEmail({
+			Destination: {
+				ToAddresses: [toAddress],
 			},
-			Body: {
-				Html: {
+			ConfigurationSetName: 'GylSesConfigurationSet',
+			Source: process.env.SOURCE_EMAIL,
+			Message: {
+				Subject: {
 					Charset: 'UTF-8',
-					Data: `<!DOCTYPE html>
+					Data: 'Confirm your subscription',
+				},
+				Body: {
+					Html: {
+						Charset: 'UTF-8',
+						Data: `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -141,39 +140,43 @@ const sendConfirmationEmail = async (subscriberData) => {
 	<p>Please confirm your subscription to this mailing list by clicking the link:</p>
 	<p><a href="${confirmLink}" rel="noreferrer noopener">Confirm subscription</a></p>
 </body>
-</html>`
-				},
-				Text: {
-					Charset: 'UTF-8',
-					Data: `
+</html>`,
+					},
+					Text: {
+						Charset: 'UTF-8',
+						Data: `
 Please confirm your subscription to this mailing list by clicking the link:
 ${confirmLink}
-`
-				}
-			}
-		}
-	}).promise();
+`,
+					},
+				},
+			},
+		})
+		.promise();
 };
 
-const updateLastConfirmation = subscriber => dynamodb.update({
-	TableName: `${dbTablePrefix}Subscribers`,
-	ConditionExpression: 'attribute_exists(#subscriberId)',
-	UpdateExpression: 'set #lastConfirmation = :lastConfirmation',
-	ExpressionAttributeNames: {
-		'#subscriberId': 'subscriberId',
-		'#lastConfirmation': 'lastConfirmation',
-	},
-	ExpressionAttributeValues: {
-		':lastConfirmation': Date.now(),
-	},
-	Key: { subscriberId: subscriber.subscriberId },
-}).promise()
+const updateLastConfirmation = (subscriber) =>
+	dynamodb
+		.update({
+			TableName: `${dbTablePrefix}Subscribers`,
+			ConditionExpression: 'attribute_exists(#subscriberId)',
+			UpdateExpression: 'set #lastConfirmation = :lastConfirmation',
+			ExpressionAttributeNames: {
+				'#subscriberId': 'subscriberId',
+				'#lastConfirmation': 'lastConfirmation',
+			},
+			ExpressionAttributeValues: {
+				':lastConfirmation': Date.now(),
+			},
+			Key: { subscriberId: subscriber.subscriberId },
+		})
+		.promise();
 
 /**
  * Posts a subscriber and runs a confirmation or autoresponder trigger if
  * provided.
  */
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		const subscriberInput = await addSubscriberSchema.validateAsync(
 			JSON.parse(event.body)
@@ -183,7 +186,10 @@ exports.handler = async event => {
 		if (!existingSubscriber) {
 			subscriberInput.displayEmail = email;
 			subscriberInput.tags = [];
-			if (process.env.DEFAULT_LIST && process.env.DEFAULT_LIST.startsWith('list-')) {
+			if (
+				process.env.DEFAULT_LIST &&
+				process.env.DEFAULT_LIST.startsWith('list-')
+			) {
 				subscriberInput.tags.push(process.env.DEFAULT_LIST);
 			}
 			subscriberInput.email = email.toLocaleLowerCase();
@@ -191,10 +197,12 @@ exports.handler = async event => {
 			await sendConfirmationEmail(fullSubscriber);
 			return response(200, JSON.stringify('OK'));
 		} else {
-			const fullSubscriber = await getSubscriberFull(existingSubscriber.subscriberId);
+			const fullSubscriber = await getSubscriberFull(
+				existingSubscriber.subscriberId
+			);
 			if (!fullSubscriber) {
 				// They were there just a second ago, but disappeared since.
-				return response(500, JSON.stringify('Server error'))
+				return response(500, JSON.stringify('Server error'));
 			}
 			// Resend the confirmation if the subscriber is unsubscribed
 			if (fullSubscriber.unsubscribed) {
@@ -206,10 +214,9 @@ exports.handler = async event => {
 				if (!fullSubscriber.lastConfirmation) {
 					await sendConfirmationEmail(fullSubscriber);
 					await updateLastConfirmation(fullSubscriber);
-				}
-				else {
+				} else {
 					// Resend confirmation if the last confirmation was over 3 hours ago
-					if (fullSubscriber.lastConfirmation < (Date.now() - 10800000)) {
+					if (fullSubscriber.lastConfirmation < Date.now() - 10800000) {
 						await sendConfirmationEmail(fullSubscriber);
 						await updateLastConfirmation(fullSubscriber);
 					}

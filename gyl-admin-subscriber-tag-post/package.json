@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-tag-add",
   "description": "Adds a tag to a subscriber",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -9,7 +9,7 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "dependencies": {
-    "@hapi/joi": "^17.1.0"
+    "@hapi/joi": "^17.1.1"
   },
   "peerDependencies": {
     "aws-sdk": "^2.610.0"

@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-unsubscribe-post",
   "description": "Unsubscribes a subscriber.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -12,7 +12,7 @@
     "test": "node test"
   },
   "dependencies": {
-    "@hapi/joi": "^17.1.0",
+    "@hapi/joi": "^17.1.1",
     "write-all-for-dynamodb": "0.0.3"
   },
   "peerDependencies": {

@@ -1,9 +1,9 @@
 const AWS = require('aws-sdk');
 const Joi = require('@hapi/joi');
-const uuidv4 = require('uuid/v4');
+const uuid = require('uuid');
 const moment = require('moment-timezone');
-const { queryAllForDynamoDB } = require('query-all-for-dynamodb')
-const { writeAllForDynamoDB } = require('write-all-for-dynamodb')
+const { queryAllForDynamoDB } = require('query-all-for-dynamodb');
+const { writeAllForDynamoDB } = require('write-all-for-dynamodb');
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -12,7 +12,7 @@ const ses = new AWS.SES();
 // Extend Joi to include timezone validation.
 const minDate = new Date();
 minDate.setFullYear(minDate.getFullYear() - 130);
-const ExtJoi = Joi.extend(joi => ({
+const ExtJoi = Joi.extend((joi) => ({
 	type: 'timezone',
 	base: joi.string(),
 	messages: {
@@ -27,52 +27,37 @@ const ExtJoi = Joi.extend(joi => ({
 
 // Schema to validate incoming add subscriber requests from userland.
 const addSubscriberSchema = ExtJoi.object({
-	email: ExtJoi.string()
-		.email()
-		.required(),
+	email: ExtJoi.string().email().required(),
 	timezone: ExtJoi.timezone(),
 	deliveryTimePreference: ExtJoi.object({
-		hour: ExtJoi.number()
-			.integer()
-			.min(0)
-			.max(23)
-			.required(),
-		minute: ExtJoi.number()
-			.integer()
-			.min(0)
-			.max(59)
-			.required(),
+		hour: ExtJoi.number().integer().min(0).max(23).required(),
+		minute: ExtJoi.number().integer().min(0).max(59).required(),
 	}),
 	tags: ExtJoi.array()
 		.allow(null)
 		.min(0)
 		.max(50)
-		.items(
-			ExtJoi.string()
-				.min(1)
-				.max(64)
-		),
+		.items(ExtJoi.string().min(1).max(64)),
 }).unknown(true);
 
 // Schema to validate triggers
 const triggerSchema = Joi.object({
-		triggerType: Joi.string().valid('confirmation', 'autoresponder'),
-		triggerId: Joi.when('triggerType', {
-			is: 'autoresponder',
-			then: Joi.string()
-				.pattern(/^[a-zA-Z0-9]+$/)
-				.required(),
-			otherwise: Joi.forbidden(),
-		}),
-	})
-	.unknown(false);
+	triggerType: Joi.string().valid('confirmation', 'autoresponder'),
+	triggerId: Joi.when('triggerType', {
+		is: 'autoresponder',
+		then: Joi.string()
+			.pattern(/^[a-zA-Z0-9]+$/)
+			.required(),
+		otherwise: Joi.forbidden(),
+	}),
+}).unknown(false);
 
 /**
  * Fetches a subscriber id associated with the given email.
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getSubscriberIdByEmail = email =>
+const getSubscriberIdByEmail = (email) =>
 	dynamodb
 		.query({
 			TableName: `${dbTablePrefix}Subscribers`,
@@ -83,21 +68,21 @@ const getSubscriberIdByEmail = email =>
 			},
 		})
 		.promise()
-		.then(results => {
+		.then((results) => {
 			if (!results.Count) {
 				return null;
 			}
 			return results.Items[0];
 		});
 
-const getSubscriberFull = subscriberId =>
+const getSubscriberFull = (subscriberId) =>
 	dynamodb
 		.get({
 			TableName: `${dbTablePrefix}Subscribers`,
 			Key: { subscriberId },
 		})
 		.promise()
-		.then(result => {
+		.then((result) => {
 			if (!result.Item) {
 				return null;
 			}
@@ -125,13 +110,13 @@ const response = (statusCode, body = '') => {
  * @param  {Object} subscriberData
  * @return {Promise}
  */
-const saveSubscriber = async subscriberData => {
+const saveSubscriber = async (subscriberData) => {
 	const fullSubscriber = Object.assign({}, subscriberData, {
-		subscriberId: uuidv4(),
+		subscriberId: uuid.v4(),
 		confirmed: false,
 		unsubscribed: false,
 		joined: Date.now(),
-		confirmationToken: uuidv4(),
+		confirmationToken: uuid.v4(),
 	});
 	await dynamodb
 		.put({
@@ -152,9 +137,9 @@ const sendConfirmationEmail = async (subscriberData, templateId = null) => {
 	const confirmLink = `${process.env.API}subscriber/confirm/?t=`;
 	const realTemplateId = templateId || 'Confirmation';
 	const templateParams = {
-		Destination: { ToAddresses: [(
-			subscriberData.displayEmail || subscriberData.email
-		)] },
+		Destination: {
+			ToAddresses: [subscriberData.displayEmail || subscriberData.email],
+		},
 		ConfigurationSetName: 'GylSesConfigurationSet',
 		Source: process.env.SOURCE_EMAIL,
 		Template: realTemplateId,
@@ -202,7 +187,7 @@ const checkHasAllTags = (tagsA, tagsB) => {
 const mergeTags = (currentTags, newTags) => {
 	const mergedTags = (currentTags || []).slice();
 	const realNewTags = newTags || [];
-	realNewTags.forEach(tag => {
+	realNewTags.forEach((tag) => {
 		if (mergedTags.indexOf(tag) < 0) {
 			mergedTags.push(tag);
 		}
@@ -211,14 +196,14 @@ const mergeTags = (currentTags, newTags) => {
 };
 
 /**
- * Runs a trigger given the 
- * @param {object} params 
- * @param {object} subscriber 
+ * Runs a trigger given the
+ * @param {object} params
+ * @param {object} subscriber
  */
 const runTrigger = async (params, subscriber) => {
 	if (!params) {
 		// No trigger found, nothing to do.
-		return
+		return;
 	}
 	if (params && params.triggerType === 'confirmation') {
 		// Run a send confirmation email trigger.
@@ -255,9 +240,7 @@ const runTrigger = async (params, subscriber) => {
 			return;
 		}
 		const runAt = Date.now();
-		const runAtModified = `${runAt}${Math.random()
-			.toString()
-			.substring(1)}`;
+		const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
 		const queueItem = Object.assign({}, startStep, {
 			queuePlacement: 'queued',
 			runAtModified,
@@ -283,14 +266,14 @@ const runTrigger = async (params, subscriber) => {
  * Posts a subscriber and runs a confirmation or autoresponder trigger if
  * provided.
  */
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		const subscriberInput = await addSubscriberSchema.validateAsync(
 			JSON.parse(event.body)
 		);
-		const trigger = event.queryStringParameters && (
-			await triggerSchema.validateAsync(event.queryStringParameters)
-		);
+		const trigger =
+			event.queryStringParameters &&
+			(await triggerSchema.validateAsync(event.queryStringParameters));
 		const { email } = subscriberInput;
 		const existingSubscriber = await getSubscriberIdByEmail(
 			email.toLocaleLowerCase()
@@ -302,20 +285,21 @@ exports.handler = async event => {
 			await runTrigger(trigger, fullSubscriber);
 			return response(200, JSON.stringify('Added'));
 		} else {
-			const fullSubscriber = await getSubscriberFull(existingSubscriber.subscriberId);
+			const fullSubscriber = await getSubscriberFull(
+				existingSubscriber.subscriberId
+			);
 			let hasAllTags = checkHasAllTags(
 				fullSubscriber.tags,
 				subscriberInput.tags
 			);
-			const tagsUpdate = hasAllTags ? existingSubscriber.tags : mergeTags(
-				fullSubscriber.tags,
-				subscriberInput.tags
-			);
+			const tagsUpdate = hasAllTags
+				? existingSubscriber.tags
+				: mergeTags(fullSubscriber.tags, subscriberInput.tags);
 			const updatedSubscriber = Object.assign(
 				{},
 				fullSubscriber,
 				subscriberInput,
-				{ tags: tagsUpdate },
+				{ tags: tagsUpdate }
 			);
 			await dynamodb
 				.put({
@@ -326,48 +310,47 @@ exports.handler = async event => {
 			if (!hasAllTags) {
 				await runTrigger(event.queryStringParameters, updatedSubscriber);
 			}
-			const queueInfoResponse = await queryAllForDynamoDB(
-				dynamodb,
-				{
-					TableName: `${dbTablePrefix}Queue`,
-					IndexName: 'SubscriberIdIndex',
-					KeyConditionExpression: '#subscriberId = :subscriberId',
-					FilterExpression: '#queuePlacement = :queued',
-					ExpressionAttributeNames: {
-						'#subscriberId': 'subscriberId',
-						'#queuePlacement': 'queuePlacement',
-					},
-					ExpressionAttributeValues: {
-						':subscriberId': updatedSubscriber.subscriberId,
-						':queued': 'queued',
-					},
-				}
-			)
+			const queueInfoResponse = await queryAllForDynamoDB(dynamodb, {
+				TableName: `${dbTablePrefix}Queue`,
+				IndexName: 'SubscriberIdIndex',
+				KeyConditionExpression: '#subscriberId = :subscriberId',
+				FilterExpression: '#queuePlacement = :queued',
+				ExpressionAttributeNames: {
+					'#subscriberId': 'subscriberId',
+					'#queuePlacement': 'queuePlacement',
+				},
+				ExpressionAttributeValues: {
+					':subscriberId': updatedSubscriber.subscriberId,
+					':queued': 'queued',
+				},
+			});
 			const queueInfoItems = queueInfoResponse.Count && queueInfoResponse.Items;
 			if (Array.isArray(queueInfoItems) && queueInfoItems.length) {
-				const queueResponse = await dynamodb.batchGet({
-					RequestItems: {
-						[`${dbTablePrefix}Queue`]: {
-							Keys: queueInfoItems.slice(0, 100).map(item => ({
-								queuePlacement: item.queuePlacement,
-								runAtModified: item.runAtModified,
-							}))
-						}
-					}
-				}).promise()
-				const queueItems = queueResponse.Count && queueResponse.Items
+				const queueResponse = await dynamodb
+					.batchGet({
+						RequestItems: {
+							[`${dbTablePrefix}Queue`]: {
+								Keys: queueInfoItems.slice(0, 100).map((item) => ({
+									queuePlacement: item.queuePlacement,
+									runAtModified: item.runAtModified,
+								})),
+							},
+						},
+					})
+					.promise();
+				const queueItems = queueResponse.Count && queueResponse.Items;
 				if (Array.isArray(queueItems) && queueItems.length) {
 					await writeAllForDynamoDB(dynamodb, {
 						RequestItems: {
-							[`${dbTablePrefix}Queue`]: queueItems.map(item => ({
+							[`${dbTablePrefix}Queue`]: queueItems.map((item) => ({
 								PutRequest: {
 									Item: Object.assign({}, item, {
-										subscriber: updatedSubscriber
-									})
-								}
-							}))
-						}
-					})
+										subscriber: updatedSubscriber,
+									}),
+								},
+							})),
+						},
+					});
 				}
 			}
 			return response(200, JSON.stringify('Updated'));

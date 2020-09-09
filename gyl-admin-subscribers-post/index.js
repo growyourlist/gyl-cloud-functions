@@ -1,9 +1,8 @@
 const AWS = require('aws-sdk');
 const Joi = require('@hapi/joi');
-const uuidv4 = require('uuid/v4');
+const uuid = require('uuid');
 const moment = require('moment-timezone');
-const { writeAllForDynamoDB } = require('write-all-for-dynamodb')
-
+const { writeAllForDynamoDB } = require('write-all-for-dynamodb');
 
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -11,7 +10,7 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 // Extend Joi to include timezone validation.
 const minDate = new Date();
 minDate.setFullYear(minDate.getFullYear() - 130);
-const ExtJoi = Joi.extend(joi => ({
+const ExtJoi = Joi.extend((joi) => ({
 	type: 'timezone',
 	base: joi.string(),
 	messages: {
@@ -31,38 +30,28 @@ const addSubscribersSchema = ExtJoi.object({
 		defaultUnsubscribedValue: ExtJoi.boolean(),
 		defaultConfirmedValue: ExtJoi.boolean(),
 	}).required(),
-	subscribers: ExtJoi.array().items(
-		ExtJoi.object({
-			email: ExtJoi.string()
-				.email()
-				.required(),
-			timezone: ExtJoi.timezone(),
-			joined: ExtJoi.number(),
-			deliveryTimePreference: ExtJoi.object({
-				hour: ExtJoi.number()
-					.integer()
+	subscribers: ExtJoi.array()
+		.items(
+			ExtJoi.object({
+				email: ExtJoi.string().email().required(),
+				timezone: ExtJoi.timezone(),
+				joined: ExtJoi.number(),
+				deliveryTimePreference: ExtJoi.object({
+					hour: ExtJoi.number().integer().min(0).max(23).required(),
+					minute: ExtJoi.number().integer().min(0).max(59).required(),
+				}),
+				tags: ExtJoi.array()
+					.allow(null)
 					.min(0)
-					.max(23)
-					.required(),
-				minute: ExtJoi.number()
-					.integer()
-					.min(0)
-					.max(59)
-					.required(),
-			}),
-			tags: ExtJoi.array()
-				.allow(null)
-				.min(0)
-				.max(50)
-				.items(
-					ExtJoi.string()
-						.min(1)
-						.max(64)
-				),
-		}).unknown(true).without(
-			'email', ['displayEmail', 'confirmationToken', 'subscriberId']
+					.max(50)
+					.items(ExtJoi.string().min(1).max(64)),
+			})
+				.unknown(true)
+				.without('email', ['displayEmail', 'confirmationToken', 'subscriberId'])
 		)
-	).min(1).max(25).required(),
+		.min(1)
+		.max(25)
+		.required(),
 });
 
 const response = (statusCode, body = '') => {
@@ -79,7 +68,7 @@ const response = (statusCode, body = '') => {
 /**
  * Posts a batch of subscribers
  */
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		const input = await addSubscribersSchema.validateAsync(
 			JSON.parse(event.body)
@@ -89,7 +78,7 @@ exports.handler = async event => {
 		if (!opts.skipDuplicateCheck) {
 			const uniqueSubscribers = [];
 			const subscriberEmails = new Set();
-			subscribers.forEach(subscriber => {
+			subscribers.forEach((subscriber) => {
 				const lowerCaseEmail = subscriber.email.toLocaleLowerCase();
 				if (!subscriberEmails.has(lowerCaseEmail)) {
 					subscriberEmails.add(lowerCaseEmail);
@@ -98,14 +87,16 @@ exports.handler = async event => {
 			});
 
 			const currentSubscribers = await Promise.all(
-				uniqueSubscribers.map(async subscriber => {
-					const response = await dynamodb.query({
-						TableName: `${dbTablePrefix}Subscribers`,
-						IndexName: 'EmailToStatusIndex',
-						KeyConditionExpression: '#email = :email',
-						ExpressionAttributeNames: { '#email': 'email' },
-						ExpressionAttributeValues: { ':email': subscriber.email },
-					}).promise();
+				uniqueSubscribers.map(async (subscriber) => {
+					const response = await dynamodb
+						.query({
+							TableName: `${dbTablePrefix}Subscribers`,
+							IndexName: 'EmailToStatusIndex',
+							KeyConditionExpression: '#email = :email',
+							ExpressionAttributeNames: { '#email': 'email' },
+							ExpressionAttributeValues: { ':email': subscriber.email },
+						})
+						.promise();
 					if (response.Count) {
 						return response.Items[0];
 					}
@@ -115,14 +106,16 @@ exports.handler = async event => {
 
 			const currentSubscriberEmails = new Set();
 			currentSubscribers
-				.filter(subscriber => !!subscriber)
-				.forEach(subscriber => {
-					currentSubscriberEmails.add(subscriber.email.toLocaleLowerCase())
-				})
+				.filter((subscriber) => !!subscriber)
+				.forEach((subscriber) => {
+					currentSubscriberEmails.add(subscriber.email.toLocaleLowerCase());
+				});
 
 			const subscribersToAdd = [];
-			uniqueSubscribers.forEach(subscriber => {
-				if (!currentSubscriberEmails.has(subscriber.email.toLocaleLowerCase())) {
+			uniqueSubscribers.forEach((subscriber) => {
+				if (
+					!currentSubscriberEmails.has(subscriber.email.toLocaleLowerCase())
+				) {
 					subscribersToAdd.push(subscriber);
 				}
 			});
@@ -133,51 +126,52 @@ exports.handler = async event => {
 
 		if (!finalSubscribers.length) {
 			// All subscribers are already in the db
-			return response(200, 'OK')
+			return response(200, 'OK');
 		}
 
-		const useDefaultConfirmedValue = typeof opts.defaultConfirmedValue !== 'undefined'
-		const useDefaultUnsubscribedValue = typeof opts.defaultUnsubscribedValue !== 'undefined'
+		const useDefaultConfirmedValue =
+			typeof opts.defaultConfirmedValue !== 'undefined';
+		const useDefaultUnsubscribedValue =
+			typeof opts.defaultUnsubscribedValue !== 'undefined';
 		await writeAllForDynamoDB(dynamodb, {
 			RequestItems: {
-				[`${dbTablePrefix}Subscribers`]: finalSubscribers.map(subscriber => {
-
-					let confirmed = true
+				[`${dbTablePrefix}Subscribers`]: finalSubscribers.map((subscriber) => {
+					let confirmed = true;
 					if (useDefaultConfirmedValue) {
-						confirmed = opts.defaultConfirmedValue
+						confirmed = opts.defaultConfirmedValue;
 					}
 					if (typeof subscriber.confirmed !== 'undefined') {
-						confirmed = subscriber.confirmed
+						confirmed = subscriber.confirmed;
 					}
-					
+
 					let unsubscribed = false;
 					if (useDefaultUnsubscribedValue) {
-						unsubscribed = opts.defaultUnsubscribedValue
+						unsubscribed = opts.defaultUnsubscribedValue;
 					}
 					if (typeof subscriber.unsubscribed !== 'undefined') {
-						unsubscribed = subscriber.unsubscribed
+						unsubscribed = subscriber.unsubscribed;
 					}
 
 					const fullSubscriber = Object.assign({}, subscriber, {
 						displayEmail: subscriber.email,
 						email: subscriber.email.toLocaleLowerCase(),
-						subscriberId: uuidv4(),
+						subscriberId: uuid.v4(),
 						confirmed,
 						unsubscribed,
 						joined: subscriber.joined || Date.now(),
-						confirmationToken: uuidv4(),
+						confirmationToken: uuid.v4(),
 					});
 					return {
 						PutRequest: {
 							Item: fullSubscriber,
-						}
-					}
-				})
-			}
-		})
+						},
+					};
+				}),
+			},
+		});
 		return response(200, 'OK');
 	} catch (err) {
-		console.error(err)
+		console.error(err);
 		return response(
 			err.statusCode || 500,
 			JSON.stringify(err.message || 'Error')
