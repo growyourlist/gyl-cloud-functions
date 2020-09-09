@@ -1,13 +1,13 @@
 {
-  "name": "gyl-cloud-functions",
-  "version": "0.0.17",
-  "main": "index.js",
-  "repository": "https://github.com/growyourlist/gyl-cloud-functions.git",
-  "author": "gyl-dev <gyl-dev@posteo.eu>",
-  "license": "MIT",
-  "devDependencies": {
-    "archiver": "^3.1.1",
-    "eslint": "^6.8.0",
-    "rimraf": "^3.0.1"
-  }
+	"name": "gyl-cloud-functions",
+	"version": "0.2.0",
+	"main": "index.js",
+	"repository": "https://github.com/growyourlist/gyl-cloud-functions.git",
+	"author": "gyl-dev <gyl-dev@posteo.eu>",
+	"license": "MIT",
+	"devDependencies": {
+		"archiver": "^5.0.0",
+		"eslint": "^7.8.1",
+		"rimraf": "^3.0.1"
+	}
 }

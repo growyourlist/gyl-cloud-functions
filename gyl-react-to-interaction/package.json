@@ -1,7 +1,7 @@
 {
   "name": "gyl-react-to-interaction",
   "description": "Reacts to an SES interaction (open/click of email)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
