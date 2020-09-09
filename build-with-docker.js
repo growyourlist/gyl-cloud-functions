@@ -2,44 +2,38 @@ const {
 	readdirSync,
 	existsSync,
 	createReadStream,
-	createWriteStream
+	createWriteStream,
 } = require('fs');
 const { sep, join, resolve } = require('path');
-const exec = require('util').promisify(require('child_process').exec);
-const rimraf = require('rimraf');
+const { promisify } = require('util');
+const exec = promisify(require('child_process').exec);
+const rimrafCore = require('rimraf');
+const rimraf = promisify(rimrafCore);
 const archiver = require('archiver');
 
 const errorPattern = /(\berr\b|\berror\b)/i;
-const isVerbose = !!process.env.VERBOSE
+const isVerbose = !!process.env.VERBOSE;
 const Logger = {
-	info: message => {
+	info: (message) => {
 		if (isVerbose) {
-			console.info(message)
+			console.info(message);
 		}
 	},
-	log: message => console.log(message),
-	warn: message => console.warn(message),
-	error: message => console.error(message),
-}
+	log: (message) => console.log(message),
+	warn: (message) => console.warn(message),
+	error: (message) => console.error(message),
+};
 
-const deleteNodeModulesFolder = async dir =>
-	new Promise((resolve, reject) => {
-		const nodeModulesDir = join(dir, 'node_modules');
-		Logger.info(`Deleting directory ${nodeModulesDir}`);
-		if (!existsSync(nodeModulesDir)) {
-			resolve();
-			return;
-		}
-		rimraf(join(nodeModulesDir), err => {
-			if (err) {
-				reject(err);
-				return;
-			}
-			resolve();
-		});
-	});
+const deleteNodeModulesFolder = async (dir) => {
+	const nodeModulesDir = join(dir, 'node_modules');
+	Logger.info(`Deleting directory ${nodeModulesDir}`);
+	if (!existsSync(nodeModulesDir)) {
+		return;
+	}
+	await rimraf(nodeModulesDir);
+};
 
-const runDockerNpmInstall = async dir => {
+const runDockerNpmInstall = async (dir) => {
 	Logger.info(`Running "npm install" in ${dir}`);
 	const cmd =
 		`powershell -Command "docker run --rm -v ${dir}:/var/task ` +
@@ -53,26 +47,31 @@ const runDockerNpmInstall = async dir => {
 	}
 };
 
-const zipLambdaPackage = async dir => {
-	return new Promise((resolve, reject) => {
-		const zipPath = join(dir, 'dist.zip')
-		var output = createWriteStream(zipPath);
-		var archive = archiver('zip', { zlib: { level: 9 } });
-		output.on('close', () => resolve());
-		output.on('error', err => {
-			output.destroy();
-			archive.destroy();
-			reject(err)
-		});
-		archive.pipe(output);
-		archive.directory(`${join(dir, 'node_modules')}${sep}`, 'node_modules')
-		const files = ['index.js', 'package.json', 'package-lock.json'];
-		for (let i = 0; i < files.length; i++) {
-			const filePath = join(dir, files[i])
-			archive.append(createReadStream(filePath), {name: files[i]})
-		}
-		archive.finalize();
+const zipLambdaPackage = async (dir) => {
+	const zipPath = join(dir, 'dist.zip');
+	const output = createWriteStream(zipPath);
+	const archive = archiver('zip', { zlib: { level: 9 } });
+	output.on('close', () => {
+		resolve();
 	});
+	output.on('error', (err) => {
+		output.destroy();
+		archive.destroy();
+		reject(err);
+	});
+	archive.pipe(output);
+	const nodeModulesDir = `${join(dir, 'node_modules')}${sep}`;
+	const nodeModulesBinDir = join(nodeModulesDir, '.bin');
+	if (existsSync(nodeModulesBinDir)) {
+		await rimraf(nodeModulesBinDir);
+	}
+	archive.directory(nodeModulesDir, 'node_modules');
+	const files = ['index.js', 'package.json', 'package-lock.json'];
+	for (let i = 0; i < files.length; i++) {
+		const filePath = join(dir, files[i]);
+		archive.append(createReadStream(filePath), { name: files[i] });
+	}
+	await archive.finalize();
 };
 
 const run = async () => {
@@ -81,22 +80,25 @@ const run = async () => {
 			.filter(
 				// Get all the directories containing package.json files, as these
 				// should be the directories containing cloud function node packages.
-				i =>
-					i.isDirectory() && existsSync(`${__dirname}${sep}${i.name}${sep}package.json`)
+				(i) =>
+					i.isDirectory() &&
+					existsSync(`${__dirname}${sep}${i.name}${sep}package.json`)
 			)
-			.map(i => i.name);
-		const targetFolderInput = process.argv[2] && resolve(process.argv[2])
-		let targetFolders = targetFolderInput ? dirs.filter(dir => {
-			return resolve(dir) === targetFolderInput;
-		}) : dirs;
+			.map((i) => i.name);
+		const targetFolderInput = process.argv[2] && resolve(process.argv[2]);
+		let targetFolders = targetFolderInput
+			? dirs.filter((dir) => {
+					return resolve(dir) === targetFolderInput;
+			  })
+			: dirs;
 		let dirName = targetFolders.pop();
 		while (dirName) {
 			console.log(`Packing ${dirName}`);
 			const dir = join(process.cwd(), dirName);
 			await deleteNodeModulesFolder(dir);
-			await new Promise(r => setTimeout(r, 500));
+			await new Promise((r) => setTimeout(r, 500));
 			await runDockerNpmInstall(dir);
-			await new Promise(r => setTimeout(r, 500));
+			await new Promise((r) => setTimeout(r, 500));
 			await zipLambdaPackage(dir);
 			dirName = targetFolders.pop();
 		}
