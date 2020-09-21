@@ -1,0 +1,14 @@
+{
+  "name": "gyl-admin-autoconfirm-tags-post",
+  "description": "Posts the list of autoconfirm tags",
+  "version": "0.3.2",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "license": "MIT",
+  "peerDependencies": {
+    "aws-sdk": "^2.756.0"
+  }
+}
