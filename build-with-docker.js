@@ -91,17 +91,25 @@ const run = async () => {
 					return resolve(dir) === targetFolderInput;
 			  })
 			: dirs;
-		let dirName = targetFolders.pop();
-		while (dirName) {
-			console.log(`Packing ${dirName}`);
-			const dir = join(process.cwd(), dirName);
-			await deleteNodeModulesFolder(dir);
-			await new Promise((r) => setTimeout(r, 500));
-			await runDockerNpmInstall(dir);
-			await new Promise((r) => setTimeout(r, 500));
-			await zipLambdaPackage(dir);
-			dirName = targetFolders.pop();
-		}
+		await Promise.all(
+			targetFolders.map(async (dirName) => {
+				const dir = join(process.cwd(), dirName);
+				await new Promise((r) =>
+					setTimeout(r, Math.round(10000 * Math.random()))
+				);
+				await deleteNodeModulesFolder(dir);
+				await new Promise((r) =>
+					setTimeout(r, Math.round(200 + Math.random() * 1000))
+				);
+				await runDockerNpmInstall(dir);
+				await new Promise((r) =>
+					setTimeout(r, Math.round(200 + Math.random() * 1000))
+				);
+				await zipLambdaPackage(dir);
+				console.log(`Packed ${dirName}`);
+			})
+		);
+		console.log(`Complete`);
 	} catch (err) {
 		console.error(err);
 	}
