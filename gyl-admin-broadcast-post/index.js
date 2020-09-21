@@ -61,7 +61,7 @@ const response = (statusCode, body = '') => {
 	};
 };
 
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		let broadcast = null;
 		try {
