@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-count-post",
   "description": "Triggers a count of subscribers.",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "main": "index.js",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "gyl-admin-lists-get",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },

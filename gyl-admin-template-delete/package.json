@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-template-delete",
   "description": "Deletes an SES template",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },

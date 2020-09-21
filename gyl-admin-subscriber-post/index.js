@@ -38,6 +38,16 @@ const addSubscriberSchema = ExtJoi.object({
 		.min(0)
 		.max(50)
 		.items(ExtJoi.string().min(1).max(64)),
+	confirmed: ExtJoi.alternatives().try(
+		ExtJoi.boolean(),
+		ExtJoi.number(),
+		ExtJoi.string()
+	),
+	unsubscribed: ExtJoi.alternatives().try(
+		ExtJoi.boolean(),
+		ExtJoi.number(),
+		ExtJoi.string()
+	),
 }).unknown(true);
 
 // Schema to validate triggers
@@ -111,17 +121,24 @@ const response = (statusCode, body = '') => {
  * @return {Promise}
  */
 const saveSubscriber = async (subscriberData) => {
-	const fullSubscriber = Object.assign({}, subscriberData, {
-		subscriberId: uuid.v4(),
-		confirmed: false,
-		unsubscribed: false,
-		joined: Date.now(),
-		confirmationToken: uuid.v4(),
-	});
+	const fullSubscriber = Object.assign(
+		{},
+		{
+			confirmed: false,
+			unsubscribed: false,
+		},
+		subscriberData,
+		{
+			joined: Date.now(),
+			subscriberId: uuid.v4(),
+			confirmationToken: uuid.v4(),
+		}
+	);
 	await dynamodb
 		.put({
 			TableName: `${dbTablePrefix}Subscribers`,
 			Item: fullSubscriber,
+			KeyConditionExpression: 'attribute_not_exists(subscriberId)',
 		})
 		.promise();
 	return fullSubscriber;
