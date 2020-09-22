@@ -9,9 +9,9 @@
   },
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "peerDependencies": {
-    "aws-sdk": "^2.610.0"
+    "aws-sdk": "^2.757.0"
   },
   "dependencies": {
-    "@hapi/joi": "^17.1.1"
+    "joi": "^17.2.1"
   }
 }

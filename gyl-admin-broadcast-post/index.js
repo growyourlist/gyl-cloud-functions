@@ -1,12 +1,26 @@
 const AWS = require('aws-sdk');
-const Joi = require('@hapi/joi');
+const Joi = require('joi');
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 // Schema to validate the triggering of a broadcast.
 const broadcastSchema = Joi.object({
-	templateId: Joi.string()
-		.regex(/^[\w-]+$/)
-		.required(),
+	templates: Joi.array()
+		.items(
+			Joi.object({
+				name: Joi.string()
+					.regex(/^[\w-]+$/)
+					.required(),
+				testPercent: Joi.number().min(0).max(100).required(),
+			})
+		)
+		.min(1),
+	templateId: Joi.when('templates', {
+		is: Joi.exist(),
+		then: Joi.forbidden(),
+		otherwise: Joi.string()
+			.regex(/^[\w-]+$/)
+			.required(),
+	}),
 	list: Joi.string()
 		.regex(/^[\w-]+$/)
 		.min(1)
@@ -69,32 +83,31 @@ exports.handler = async (event) => {
 		} catch (err) {
 			return response(400, `Bad request: ${err.message}`);
 		}
-		const TemplateName = broadcast.templateId;
-		// Check the template exists by trying to fetch it
-		await ses.getTemplate({ TemplateName }).promise();
-		const isDoingBroadcastResponse = await dynamodb
-			.get({
-				TableName: `${dbTablePrefix}Settings`,
-				Key: { settingName: 'isDoingBroadcast' },
-			})
-			.promise();
-		if (
-			isDoingBroadcastResponse.Item &&
-			isDoingBroadcastResponse.Item.isDoingBroadcast
-		) {
-			throw new Error('A broadcast is already in progress. Try again later.');
+		if (broadcast.templateId) {
+			const TemplateName = broadcast.templateId;
+			// Check the template exists by trying to fetch it
+			await ses.getTemplate({ TemplateName }).promise();
+		} else {
+			await Promise.all(
+				broadcast.templates.map(async (template) => {
+					await ses.getTemplate({ TemplateName: template.name }).promise();
+				})
+			);
 		}
-		// Merge list into list of tags to search for, as it is just a tag itself.
-		broadcast.tags = (broadcast.tags &&
-			broadcast.tags.concat([broadcast.list])) || [broadcast.list];
-		delete broadcast.list;
+		const Item = Object.assign({}, broadcast, {
+			runAt: `${
+				broadcast.runAt || Date.now()
+			}.${Math.random().toString().substr(2)}`,
+			// Merge list into list of tags to search for, as it is just a tag itself.
+			tags: (broadcast.tags && broadcast.tags.concat(broadcast.list)) || [
+				broadcast.list,
+			],
+		});
+		delete Item.list;
 		await dynamodb
 			.put({
-				TableName: `${dbTablePrefix}Settings`,
-				Item: {
-					settingName: 'pendingBroadcast',
-					value: broadcast,
-				},
+				TableName: `${dbTablePrefix}BroadcastQueue`,
+				Item,
 			})
 			.promise();
 		return response(200, JSON.stringify('OK'));
