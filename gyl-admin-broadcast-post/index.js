@@ -54,7 +54,16 @@ const broadcastSchema = Joi.object({
 			open: Joi.boolean(),
 		})
 	),
-});
+	ignoreConfirmed: Joi.boolean(),
+	interactionWithAnyEmail: Joi.alternatives().try(
+		Joi.any().allow(null),
+		Joi.object({
+			interactionType: Joi.string().valid('clicked', 'opened or clicked'),
+			interactionPeriodValue: Joi.number().min(0),
+			interactionPeriodUnit: Joi.string().valid('days'),
+		})
+	),
+}).unknown(false);
 
 const ses = new AWS.SES();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -95,13 +104,14 @@ exports.handler = async (event) => {
 			);
 		}
 		const Item = Object.assign({}, broadcast, {
-			runAt: `${
+			runAt: `${parseInt(
 				broadcast.runAt || Date.now()
-			}.${Math.random().toString().substr(2)}`,
+			)}${Math.random().toString().substr(1)}`,
 			// Merge list into list of tags to search for, as it is just a tag itself.
 			tags: (broadcast.tags && broadcast.tags.concat(broadcast.list)) || [
 				broadcast.list,
 			],
+			phase: 'pending',
 		});
 		delete Item.list;
 		await dynamodb
