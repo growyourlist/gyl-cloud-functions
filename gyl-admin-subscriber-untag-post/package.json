@@ -9,7 +9,9 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "dependencies": {
-    "@hapi/joi": "^17.1.1"
+    "@hapi/joi": "^17.1.1",
+    "query-all-for-dynamodb": "0.0.2",
+    "write-all-for-dynamodb": "0.0.3"
   },
   "peerDependencies": {
     "aws-sdk": "^2.610.0"
