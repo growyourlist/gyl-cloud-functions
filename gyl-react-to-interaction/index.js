@@ -162,6 +162,15 @@ exports.handler = async (event) => {
 	try {
 		const message = JSON.parse(event.Records[0].Sns.Message);
 		const interaction = message.eventType.toLowerCase(); // E.g. Open or Click
+		// Ignore clicks on unsubscribe links
+		if (
+			interaction === 'click' &&
+			message.click &&
+			typeof message.click.link === 'string' &&
+			/unsubscribe/.test(message.click.link)
+		) {
+			return;
+		}
 		const email = message.mail.destination[0];
 		const trigger = getTrigger(message.mail.tags, interaction);
 		await Promise.all([
