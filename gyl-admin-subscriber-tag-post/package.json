@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-tag-add",
   "description": "Adds a tag to a subscriber",
-  "version": "0.3.4",
+  "version": "0.3.6",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
