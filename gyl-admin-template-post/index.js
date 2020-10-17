@@ -69,7 +69,8 @@ const createOrUpdateTemplate = async (params) => {
 			.put({
 				TableName: `${dbTablePrefix}TemplateHistory`,
 				Item: Object.assign({}, templateParams, {
-					Timestamp: Date.now(),
+					templateName: templateParams.TemplateName,
+					timestamp: Date.now(),
 				}),
 			})
 			.promise();
