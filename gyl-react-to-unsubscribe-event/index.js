@@ -77,7 +77,7 @@ exports.handler = async event => {
 				dynamodb
 					.query({
 						TableName: `${dbTablePrefix}Queue`,
-						IndexName: 'subscriberId-index',
+						IndexName: 'SubscriberIdIndex',
 						KeyConditionExpression: '#subscriberId = :subscriberId',
 						FilterExpression: '#queuePlacement = :queued',
 						ExpressionAttributeNames: {
@@ -90,13 +90,13 @@ exports.handler = async event => {
 						},
 					})
 					.promise()
-					.then(async queueResults => {
+					.then(async (queueResults) => {
 						if (!(queueResults.Items && queueResults.Items.length)) {
 							return;
 						}
 						const queueItems = queueResults.Items;
 						const requests = [];
-						queueItems.forEach(item => {
+						queueItems.forEach((item) => {
 							requests.push({
 								DeleteRequest: {
 									Key: {
@@ -109,7 +109,7 @@ exports.handler = async event => {
 						const batchThreshold = 25;
 						const batches = [];
 						let currentBatch = [];
-						requests.forEach(request => {
+						requests.forEach((request) => {
 							if (currentBatch.length === batchThreshold) {
 								batches.push(currentBatch);
 								currentBatch = [];
@@ -118,7 +118,7 @@ exports.handler = async event => {
 						});
 						batches.push(currentBatch);
 						await Promise.all(
-							batches.map(batch =>
+							batches.map((batch) =>
 								dynamodb
 									.batchWrite({
 										RequestItems: {
