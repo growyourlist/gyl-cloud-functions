@@ -187,8 +187,7 @@ exports.handler = async (event) => {
 			subscriberInput.displayEmail = email;
 			subscriberInput.tags = [];
 			if (
-				process.env.DEFAULT_LIST &&
-				process.env.DEFAULT_LIST.startsWith('list-')
+				process.env.DEFAULT_LIST
 			) {
 				subscriberInput.tags.push(process.env.DEFAULT_LIST);
 			}
