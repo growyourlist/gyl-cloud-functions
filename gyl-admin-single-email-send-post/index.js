@@ -7,37 +7,59 @@ const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 const sendSingleEmailSchema = Joi.object({
 	toEmailAddress: Joi.string().email().required(),
-	subject: Joi.string().allow('').required(),
-	body: Joi.object({
-		text: Joi.string().allow(''),
-		html: Joi.string().allow(''),
-	}).unknown(false).or('body', 'html').required(),
+	templateId: Joi.string(),
+	subject: Joi.when('templateId', {
+		is: Joi.exist(),
+		then: Joi.forbidden(),
+		otherwise: Joi.string().allow('').required(),
+	}),
+	body: Joi.when('templateId', {
+		is: Joi.exist(),
+		then: Joi.forbidden(),
+		otherwise: Joi.object({
+			text: Joi.string().allow(''),
+			html: Joi.string().allow(''),
+		})
+			.unknown(false)
+			.or('body', 'html')
+			.required(),
+	}),
 	opts: Joi.object({
 		fromEmailAddress: Joi.string().allow(''),
 		// Only allow scheduling up to a year in advance
 		waitInSeconds: Joi.number().min(0).max(31708800),
 		tagReason: Joi.alternatives(
-			Joi.string().regex(/^[\w-]+$/).min(1).max(128),
-			Joi.array().items(Joi.string().regex(/^[\w-]+$/).min(1).max(128))
+			Joi.string()
+				.regex(/^[\w-]+$/)
+				.min(1)
+				.max(128),
+			Joi.array().items(
+				Joi.string()
+					.regex(/^[\w-]+$/)
+					.min(1)
+					.max(128)
+			)
 		),
 		autoSaveUnknownSubscriber: Joi.boolean(),
 	}).unknown(false),
-}).unknown(false).required();
+})
+	.unknown(false)
+	.required();
 
-const badRequest = message => {
+const badRequest = (message) => {
 	return {
 		statusCode: 400,
 		headers: { 'Access-Control-Allow-Origin': '*' },
-		body: JSON.stringify(message)
-	}
-}
+		body: JSON.stringify(message),
+	};
+};
 
 /**
  * Creates a new queue item.
  */
 const newQueueItem = (itemData, waitInSeconds) => {
-	const runAt = Date.now() + (waitInSeconds * 1000)
-	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`
+	const runAt = Date.now() + waitInSeconds * 1000;
+	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
 	return Object.assign({}, itemData, {
 		queuePlacement: 'queued',
 		runAtModified: runAtModified,
@@ -45,20 +67,22 @@ const newQueueItem = (itemData, waitInSeconds) => {
 		attempts: 0,
 		failed: false,
 		completed: false,
-	})
-}
+	});
+};
 
 /**
  * Gets or creates the subscriber with the given email address.
- * @param {string} email 
+ * @param {string} email
  */
 const getOrCreateSubscriber = async (email, opts = {}) => {
-	const statusResponse = await dynamodb.query({
-		TableName: `${dbTablePrefix}Subscribers`,
-		IndexName: 'EmailToStatusIndex',
-		KeyConditionExpression: 'email = :email',
-		ExpressionAttributeValues: { ':email': email.toLocaleLowerCase() },
-	}).promise()
+	const statusResponse = await dynamodb
+		.query({
+			TableName: `${dbTablePrefix}Subscribers`,
+			IndexName: 'EmailToStatusIndex',
+			KeyConditionExpression: 'email = :email',
+			ExpressionAttributeValues: { ':email': email.toLocaleLowerCase() },
+		})
+		.promise();
 	const status = statusResponse.Count && statusResponse.Items[0];
 	if (!status) {
 		const subscriber = {
@@ -69,25 +93,30 @@ const getOrCreateSubscriber = async (email, opts = {}) => {
 			unsubscribed: false,
 			joined: Date.now(),
 			confirmationToken: uuid.v4(),
-		}
+		};
 		if (opts.autoSaveUnknownSubscriber) {
-			await dynamodb.put({
-				TableName: `${dbTablePrefix}Subscribers`,
-				Item: subscriber,
-			}).promise()
+			await dynamodb
+				.put({
+					TableName: `${dbTablePrefix}Subscribers`,
+					Item: subscriber,
+				})
+				.promise();
 		}
 		return subscriber;
-	}
-	else {
-		const subscriberResponse = await dynamodb.get({
-			TableName: `${dbTablePrefix}Subscribers`,
-			Key: { subscriberId: status.subscriberId },
-		}).promise()
+	} else {
+		const subscriberResponse = await dynamodb
+			.get({
+				TableName: `${dbTablePrefix}Subscribers`,
+				Key: { subscriberId: status.subscriberId },
+			})
+			.promise();
 		if (!subscriberResponse.Item) {
 			// The subscriber existed less than a second ago, but not anymore...
 			const newId = uuid.v4();
-			console.warn('Creating subscriber after they existed a second ago. Old ' +
-				`id: ${status.subscriberId} new id: ${newId}`)
+			console.warn(
+				'Creating subscriber after they existed a second ago. Old ' +
+					`id: ${status.subscriberId} new id: ${newId}`
+			);
 			const subscriber = {
 				subscriberId: newId,
 				email: email.toLocaleLowerCase(),
@@ -96,28 +125,29 @@ const getOrCreateSubscriber = async (email, opts = {}) => {
 				unsubscribed: false,
 				joined: Date.now(),
 				confirmationToken: uuid.v4(),
-			}
+			};
 			if (opts.autoSaveUnknownSubscriber) {
-				await dynamodb.put({
-					TableName: `${dbTablePrefix}Subscribers`,
-					Item: subscriber,
-				}).promise()
+				await dynamodb
+					.put({
+						TableName: `${dbTablePrefix}Subscribers`,
+						Item: subscriber,
+					})
+					.promise();
 			}
 			return subscriber;
 		}
 		return subscriberResponse.Item;
 	}
-}
+};
 
 exports.handler = async (event) => {
 	try {
-		let requestBody = null
+		let requestBody = null;
 		try {
 			requestBody = await sendSingleEmailSchema.validateAsync(
 				JSON.parse(event.body)
-			)
-		}
-		catch (err) {
+			);
+		} catch (err) {
 			return badRequest(err.message);
 		}
 		requestBody.opts = requestBody.opts || {};
@@ -126,35 +156,42 @@ exports.handler = async (event) => {
 		}
 		const email = requestBody.toEmailAddress;
 		const subscriber = await getOrCreateSubscriber(email, requestBody.opts);
-		await dynamodb.put({
-			TableName: `${dbTablePrefix}Queue`,
-			Item: newQueueItem(
-				{
-					type: 'send email',
-					subscriber,
-					subscriberId: subscriber.subscriberId,
-					subject: requestBody.subject,
-					body: requestBody.body,
-					sourceEmail: requestBody.opts.fromEmailAddress || process.env.SOURCE_EMAIL_ADDRESS,
-					tagReason: requestBody.opts.tagReason || null,
-				},
-				requestBody.opts.waitInSeconds || 0
-			)
-		}).promise()
+		const queueItemProps = {
+			type: 'send email',
+			subscriber,
+			subscriberId: subscriber.subscriberId,
+		};
+		if (requestBody.templateId) {
+			queueItemProps.templateId = requestBody.templateId;
+		} else {
+			queueItemProps.subject = requestBody.subject;
+			queueItemProps.body = requestBody.body;
+		}
+		if (requestBody.opts.fromEmailAddress) {
+			queueItemProps.sourceEmail = requestBody.opts.fromEmailAddress;
+		}
+		if (requestBody.opts.tagReason) {
+			queueItemProps.tagReason = requestBody.opts.tagReason;
+		}
+		await dynamodb
+			.put({
+				TableName: `${dbTablePrefix}Queue`,
+				Item: newQueueItem(queueItemProps, requestBody.opts.waitInSeconds || 0),
+			})
+			.promise();
 		const response = {
 			statusCode: 200,
 			headers: { 'Access-Control-Allow-Origin': '*' },
 			body: JSON.stringify('OK'),
 		};
 		return response;
-	}
-	catch (err) {
-		console.error(err)
+	} catch (err) {
+		console.error(err);
 		const response = {
 			statusCode: 500,
 			headers: { 'Access-Control-Allow-Origin': '*' },
-			body: JSON.stringify(`Error: ${err.message}`)
-		}
-		return response
+			body: JSON.stringify(`Error: ${err.message}`),
+		};
+		return response;
 	}
-}
+};
