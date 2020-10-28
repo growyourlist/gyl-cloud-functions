@@ -26,8 +26,8 @@ exports.handler = async (event) => {
 			.put({
 				TableName: `${dbTablePrefix}AutoresponderHistory`,
 				Item: {
-					AutoresponderName: `autoresponder-${autoresponderDef.autoresponderId}`,
-					Timestamp: Date.now(),
+					autoresponderName: `autoresponder-${autoresponderDef.autoresponderId}`,
+					timestamp: Date.now(),
 					definition: autoresponderDef,
 				},
 			})
