@@ -54,11 +54,21 @@ const addSubscriberSchema = ExtJoi.object({
 const triggerSchema = Joi.object({
 	triggerType: Joi.string().valid('confirmation', 'autoresponder'),
 	triggerId: Joi.when('triggerType', {
-		is: 'autoresponder',
-		then: Joi.string()
-			.pattern(/^[a-zA-Z0-9]+$/)
-			.required(),
-		otherwise: Joi.forbidden(),
+		switch: [
+			{
+				is: 'autoresponder',
+				then: Joi.string()
+					.pattern(/^[a-zA-Z0-9]+$/)
+					.required(),
+			},
+			{
+				is: 'confirmation',
+				then: Joi.string()
+					.pattern(/^[a-zA-Z0-9]+$/)
+					.required(),
+				otherwise: Joi.forbidden(),
+			},
+		],
 	}),
 }).unknown(false);
 
@@ -209,7 +219,7 @@ const mergeTags = (currentTags, newTags) => {
 			mergedTags.push(tag);
 		}
 	});
-	return realNewTags;
+	return mergedTags;
 };
 
 /**
