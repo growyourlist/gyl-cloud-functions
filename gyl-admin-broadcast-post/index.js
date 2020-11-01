@@ -38,6 +38,7 @@ const broadcastSchema = Joi.object({
 			.min(1)
 			.max(128)
 	),
+	tagOnClick: Joi.string().regex(/^[\w-]+$/),
 	properties: Joi.object(),
 	runAt: Joi.number()
 		.allow(null)
