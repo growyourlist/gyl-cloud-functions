@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-templates-get",
   "description": "Gets the SES templates",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
