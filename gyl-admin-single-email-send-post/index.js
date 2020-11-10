@@ -41,6 +41,9 @@ const sendSingleEmailSchema = Joi.object({
 			)
 		),
 		autoSaveUnknownSubscriber: Joi.boolean(),
+		tagOnClick: Joi.string()
+			.regex(/^[\w-]+$/)
+			.max(128),
 	}).unknown(false),
 })
 	.unknown(false)
@@ -172,6 +175,9 @@ exports.handler = async (event) => {
 		}
 		if (requestBody.opts.tagReason) {
 			queueItemProps.tagReason = requestBody.opts.tagReason;
+		}
+		if (requestBody.opts.tagOnClick) {
+			queueItemProps.tagOnClick = requestBody.opts.tagOnClick;
 		}
 		await dynamodb
 			.put({
