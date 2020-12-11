@@ -328,6 +328,19 @@ exports.handler = async (event) => {
 				subscriberInput,
 				{ tags: tagsUpdate }
 			);
+			if (existingSubscriber.unsubscribed) {
+				updatedSubscriber.unsubscribed = false;
+				updatedSubscriber.tags = subscriberInput.tags;
+				if (typeof subscriberInput.confirmed === 'undefined') {
+					updatedSubscriber.confirmed = false;
+				}
+			}
+			// If the existing subscriber was already confirmed and the update
+			// details also instruct that the subscriber should be confirmed,
+			// then retain the existing confirmed value
+			if (existingSubscriber.confirmed && subscriberInput.confirmed) {
+				updatedSubscriber.confirmed = existingSubscriber.confirmed;
+			}
 			await dynamodb
 				.put({
 					TableName: `${dbTablePrefix}Subscribers`,
