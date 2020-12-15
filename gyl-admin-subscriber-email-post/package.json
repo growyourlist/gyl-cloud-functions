@@ -1,0 +1,23 @@
+{
+  "name": "gyl-admin-subscriber-email-post",
+  "description": "Handles requests to update a subscriber's email address.",
+  "version": "0.3.8",
+  "repository": {
+    "url": "https://github.com/growyourlist/gyl-cloud-functions"
+  },
+  "main": "index.js",
+  "author": "gyl-dev <gyl-dev@posteo.eu>",
+  "license": "MIT",
+  "scripts": {
+    "test": "node test"
+  },
+  "dependencies": {
+    "joi": "^17.3.0",
+    "p-queue": "^6.6.2",
+    "query-all-for-dynamodb": "0.0.2",
+    "write-all-for-dynamodb": "0.0.3"
+  },
+  "peerDependencies": {
+    "aws-sdk": "2.809.0"
+  }
+}
