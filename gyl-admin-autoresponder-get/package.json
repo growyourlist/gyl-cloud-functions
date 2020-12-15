@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-autoresponder-get",
   "description": "Gets an autoresponder.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "main": "index.js",
   "license": "MIT",
   "repository": {
@@ -10,6 +10,6 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "dependencies": {},
   "peerDependencies": {
-    "aws-sdk": "^2.611.0"
+    "aws-sdk": "2.809.0"
   }
 }

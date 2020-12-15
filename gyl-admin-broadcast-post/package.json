@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-broadcast-post",
   "description": "Triggers a broadcast.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "main": "index.js",
   "license": "MIT",
   "repository": {
@@ -9,7 +9,7 @@
   },
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "peerDependencies": {
-    "aws-sdk": "^2.757.0"
+    "aws-sdk": "2.809.0"
   },
   "dependencies": {
     "joi": "^17.2.1"

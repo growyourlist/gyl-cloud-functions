@@ -1,6 +1,6 @@
 {
   "name": "gyl-admin-lists-get",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -9,6 +9,6 @@
   "license": "MIT",
   "dependencies": {},
   "peerDependencies": {
-    "aws-sdk": "^2.610.0"
+    "aws-sdk": "2.809.0"
   }
 }

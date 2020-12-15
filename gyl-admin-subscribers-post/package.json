@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-add-subscriber",
   "description": "Adds a subscriber.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -19,6 +19,6 @@
     "write-all-for-dynamodb": "^0.0.3"
   },
   "peerDependencies": {
-    "aws-sdk": "^2.646.0"
+    "aws-sdk": "2.809.0"
   }
 }

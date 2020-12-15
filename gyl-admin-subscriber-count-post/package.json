@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-count-post",
   "description": "Triggers a count of subscribers.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "main": "index.js",
   "license": "MIT",
   "repository": {
@@ -10,6 +10,6 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "dependencies": {},
   "peerDependencies": {
-    "aws-sdk": "^2.612.0"
+    "aws-sdk": "2.809.0"
   }
 }

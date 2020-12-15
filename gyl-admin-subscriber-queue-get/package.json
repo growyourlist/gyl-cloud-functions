@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-history-get",
   "description": "Gets the history for a subscriber",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -12,6 +12,6 @@
     "query-all-for-dynamodb": "0.0.2"
   },
   "peerDependencies": {
-    "aws-sdk": "^2.610.0"
+    "aws-sdk": "2.809.0"
   }
 }
