@@ -54,7 +54,7 @@ const addSubscriberSchema = ExtJoi.object({
 const triggerSchema = Joi.object({
 	triggerType: Joi.string().valid('confirmation', 'autoresponder'),
 	triggerId: Joi.when('triggerType', {
-		switch: [
+		'switch': [
 			{
 				is: 'autoresponder',
 				then: Joi.string()
@@ -330,7 +330,7 @@ exports.handler = async (event) => {
 			);
 			if (existingSubscriber.unsubscribed) {
 				updatedSubscriber.unsubscribed = false;
-				updatedSubscriber.tags = subscriberInput.tags;
+				updatedSubscriber.tags = Array.isArray(subscriberInput.tags) ? subscriberInput.tags : [];
 				if (typeof subscriberInput.confirmed === 'undefined') {
 					updatedSubscriber.confirmed = false;
 				}
