@@ -8,19 +8,9 @@ const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 const unsubscribeSchema = Joi.object({
 	allEmails: Joi.boolean().required(),
-	email: Joi.string()
-		.lowercase()
-		.email()
-		.required(),
-	unsubscribeTokenValue: Joi.string()
-		.length(12)
-		.hex()
-		.lowercase()
-		.required(),
-	listIds: Joi.array()
-		.items(Joi.string().max(64))
-		.max(64)
-		.required(),
+	email: Joi.string().lowercase().email().required(),
+	unsubscribeTokenValue: Joi.string().length(12).hex().lowercase().required(),
+	listIds: Joi.array().items(Joi.string().max(64)).max(64).required(),
 });
 
 /**
@@ -28,7 +18,7 @@ const unsubscribeSchema = Joi.object({
  * @param  {String} email
  * @return {Promise<Object>}
  */
-const getSubscriberStatusByEmail = async email => {
+const getSubscriberStatusByEmail = async (email) => {
 	const subscriberStatusResponse = await dynamodb
 		.query({
 			TableName: `${dbTablePrefix}Subscribers`,
@@ -63,13 +53,13 @@ const response = (statusCode, body) => {
  * Deletes a list of queue items from the queue.
  * @param {Object[]} queueItems
  */
-const deleteQueueItems = async queueItems => {
+const deleteQueueItems = async (queueItems) => {
 	if (!queueItems || !queueItems.length) {
 		return;
 	}
 	await writeAllForDynamoDB(dynamodb, {
 		RequestItems: {
-			[`${dbTablePrefix}Queue`]: queueItems.map(queueItem => ({
+			[`${dbTablePrefix}Queue`]: queueItems.map((queueItem) => ({
 				DeleteRequest: {
 					Key: {
 						queuePlacement: queueItem.queuePlacement,
@@ -85,7 +75,7 @@ const deleteQueueItems = async queueItems => {
  * Sets a subscribe to unsubscribed and removes all their items from the queue.
  * @param {String} subscriberId
  */
-const unsubscribeSubscriberFromAll = async subscriberId => {
+const unsubscribeSubscriberFromAll = async (subscriberId) => {
 	await dynamodb
 		.update({
 			TableName: `${dbTablePrefix}Subscribers`,
@@ -124,27 +114,27 @@ const unsubscribeSubscriberFromAll = async subscriberId => {
 const unsubscribeSubscriberFromLists = async (subscriberStatus, listIds) => {
 	const { subscriberId, tags } = subscriberStatus;
 	let newTags = tags.slice();
-	listIds.forEach(listId => {
+	listIds.forEach((listId) => {
 		const tagIndex = newTags.indexOf(listId);
 		if (tagIndex >= 0) {
 			newTags.splice(tagIndex, 1);
 		}
 	});
 	const subscriberUpdateParams = {
-			TableName: `${dbTablePrefix}Subscribers`,
-			Key: { subscriberId },
-			UpdateExpression: 'set #tags = :tags',
-			ExpressionAttributeNames: { '#tags': 'tags' },
-			ExpressionAttributeValues: { ':tags': newTags },
-	}
+		TableName: `${dbTablePrefix}Subscribers`,
+		Key: { subscriberId },
+		UpdateExpression: 'set #tags = :tags',
+		ExpressionAttributeNames: { '#tags': 'tags' },
+		ExpressionAttributeValues: { ':tags': newTags },
+	};
 	if (!newTags.length) {
-		subscriberUpdateParams.UpdateExpression += ', #unsubscribed = :unsubscribed';
-		subscriberUpdateParams.ExpressionAttributeNames['#unsubscribed'] = 'unsubscribed';
+		subscriberUpdateParams.UpdateExpression +=
+			', #unsubscribed = :unsubscribed';
+		subscriberUpdateParams.ExpressionAttributeNames['#unsubscribed'] =
+			'unsubscribed';
 		subscriberUpdateParams.ExpressionAttributeValues[':unsubscribed'] = true;
 	}
-	await dynamodb
-		.update(subscriberUpdateParams)
-		.promise();
+	await dynamodb.update(subscriberUpdateParams).promise();
 	const queryParams = {
 		TableName: `${dbTablePrefix}Queue`,
 		IndexName: 'SubscriberIdIndex',
@@ -175,7 +165,7 @@ const unsubscribeSubscriberFromLists = async (subscriberStatus, listIds) => {
 	await deleteQueueItems(queueResponse.Items);
 };
 
-exports.handler = async event => {
+exports.handler = async (event) => {
 	try {
 		let unsubscribeData = null;
 		try {
@@ -194,16 +184,16 @@ exports.handler = async event => {
 			!status.unsubscribeToken ||
 			!status.unsubscribeToken.created ||
 			!status.unsubscribeToken.value ||
-			(status.unsubscribeToken.created < (Date.now() - 172800000))
+			status.unsubscribeToken.created < Date.now() - 172800000
 		) {
 			// No token, or token is older than 48 hours
-			return response(403, 'Forbidden');
+			return response(403, 'Forbidden: expired token');
 		}
 		if (
 			status.unsubscribeToken.value !== unsubscribeData.unsubscribeTokenValue
 		) {
 			// Token sent by user does not match token in database
-			return response(403, 'Forbidden');
+			return response(403, 'Forbidden: invalid token');
 		}
 
 		if (unsubscribeData.allEmails) {
