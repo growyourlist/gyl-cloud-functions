@@ -7,13 +7,13 @@ const { queryAllForDynamoDB, ReturnType } = require('query-all-for-dynamodb');
 const dbTablePrefix = process.env.DB_TABLE_PREFIX || '';
 
 const updateEmailSchema = Joi.object({
-	subscriberId = Joi.string().lowercase().uuid().required(),
+	subscriberId: Joi.string().lowercase().uuid().required(),
 	email: Joi.string().email().required(),
 }).required();
 
 exports.handler = async (event) => {
 	try {
-		const { subscriberId, email } = await updateEmailSchema(JSON.parse(event.body));
+		const { subscriberId, email } = await updateEmailSchema.validateAsync(JSON.parse(event.body));
 		const currentSubscriberResponse = await dynamodb.get({
 			TableName: `${dbTablePrefix}Subscribers`,
 			Key: { subscriberId },
