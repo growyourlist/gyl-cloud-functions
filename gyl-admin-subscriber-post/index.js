@@ -330,7 +330,7 @@ exports.handler = async (event) => {
 			);
 			if (existingSubscriber.unsubscribed) {
 				updatedSubscriber.unsubscribed = false;
-				updatedSubscriber.tags = Array.isArray(subscriberInput.tags) ? subscriberInput.tags : [];
+				updatedSubscriber.tags = subscriberInput.tags;
 				if (typeof subscriberInput.confirmed === 'undefined') {
 					updatedSubscriber.confirmed = false;
 				}
