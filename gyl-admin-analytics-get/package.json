@@ -1,6 +1,6 @@
 {
   "name": "gyl-admin-email-analytics-get",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "description": "Returns analytics for an email.",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"

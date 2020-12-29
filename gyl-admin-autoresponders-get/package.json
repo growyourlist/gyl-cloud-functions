@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-autoresponders-get",
   "description": "Gets a list of autoresponders.",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "main": "index.js",
   "license": "MIT",
   "repository": {

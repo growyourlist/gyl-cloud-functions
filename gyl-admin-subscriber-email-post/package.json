@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-email-post",
   "description": "Handles requests to update a subscriber's email address.",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
