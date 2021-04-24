@@ -47,7 +47,7 @@ const runDockerNpmInstall = async (dir) => {
 	}
 };
 
-const zipLambdaPackage = async (dir) => {
+const zipLambdaPackage = (dir) => new Promise((resolve, reject) => {
 	const zipPath = join(dir, 'dist.zip');
 	const output = createWriteStream(zipPath);
 	const archive = archiver('zip', { zlib: { level: 9 } });
@@ -62,17 +62,24 @@ const zipLambdaPackage = async (dir) => {
 	archive.pipe(output);
 	const nodeModulesDir = `${join(dir, 'node_modules')}${sep}`;
 	const nodeModulesBinDir = join(nodeModulesDir, '.bin');
-	if (existsSync(nodeModulesBinDir)) {
-		await rimraf(nodeModulesBinDir);
+	const packDir = async () => {
+		try {
+			if (existsSync(nodeModulesBinDir)) {
+				await rimraf(nodeModulesBinDir);
+			}
+			archive.directory(nodeModulesDir, 'node_modules');
+			const files = ['index.js', 'package.json', 'package-lock.json'];
+			for (let i = 0; i < files.length; i++) {
+				const filePath = join(dir, files[i]);
+				archive.append(createReadStream(filePath), { name: files[i] });
+			}
+			await archive.finalize();
+		} catch (err) {
+			reject(err);
+		}
 	}
-	archive.directory(nodeModulesDir, 'node_modules');
-	const files = ['index.js', 'package.json', 'package-lock.json'];
-	for (let i = 0; i < files.length; i++) {
-		const filePath = join(dir, files[i]);
-		archive.append(createReadStream(filePath), { name: files[i] });
-	}
-	await archive.finalize();
-};
+	packDir();
+});
 
 const run = async () => {
 	try {
@@ -89,7 +96,7 @@ const run = async () => {
 		let targetFolders = targetFolderInput
 			? dirs.filter((dir) => {
 					return resolve(dir) === targetFolderInput;
-			  })
+				})
 			: dirs;
 		await Promise.all(
 			targetFolders.map(async (dirName) => {
