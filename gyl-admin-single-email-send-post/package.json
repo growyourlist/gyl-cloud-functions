@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-single-email-send-post",
   "description": "Sends a single email",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -10,7 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@hapi/joi": "^17.1.1",
-    "uuid": "^8.3.0"
+    "uuid": "^8.3.2"
   },
   "peerDependencies": {
     "aws-sdk": "2.809.0"

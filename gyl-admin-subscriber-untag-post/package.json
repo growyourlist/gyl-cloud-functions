@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-untag-post",
   "description": "Removes a tag to a subscriber",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },

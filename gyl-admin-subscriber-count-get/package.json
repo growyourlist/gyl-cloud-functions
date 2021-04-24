@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-count-get",
   "description": "Gets the status of the subscriber count.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "index.js",
   "license": "MIT",
   "repository": {

@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-add-subscriber",
   "description": "Adds a subscriber.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
@@ -13,9 +13,9 @@
   },
   "dependencies": {
     "@hapi/joi": "^17.1.1",
-    "moment-timezone": "^0.5.31",
+    "moment-timezone": "^0.5.33",
     "query-all-for-dynamodb": "0.0.2",
-    "uuid": "^8.3.0",
+    "uuid": "^8.3.2",
     "write-all-for-dynamodb": "^0.0.3"
   },
   "peerDependencies": {
