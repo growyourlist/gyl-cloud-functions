@@ -64,6 +64,14 @@ const broadcastSchema = Joi.object({
 			interactionPeriodUnit: Joi.string().valid('days'),
 		})
 	),
+	winningType: Joi.alternatives().try(
+		Joi.any().allow(null, undefined),
+		Joi.string().valid(
+			'content: email with most clicks',
+			'subject: email with most opens',
+			'auto-merge subject (most opens) and content (most clicks) into new email'
+		)
+	),
 }).unknown(false);
 
 const ses = new AWS.SES();
