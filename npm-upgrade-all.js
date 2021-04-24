@@ -2,12 +2,9 @@ const { readdirSync, existsSync } = require('fs');
 const { sep, join, resolve } = require('path');
 const { sync: spawnSync } = require('cross-spawn');
 
-const errorPattern = /(\berr\b|\berror\b)/i;
-
-const runNpmOutdated = async (dir) => {
+const runNpmUpgrade = async (dir) => {
 	const proc = spawnSync('npm', ['upgrade'], {
 		cwd: dir,
-		// encoding: 'utf8',
 	});
 	if (proc.stdout) {
 		process.stdout.write(proc.stdout);
@@ -33,13 +30,13 @@ const run = async () => {
 		let targetFolders = targetFolderInput
 			? dirs.filter((dir) => {
 					return resolve(dir) === targetFolderInput;
-			  })
+				})
 			: dirs;
 		let dirName = targetFolders.pop();
 		while (dirName) {
 			console.log(dirName);
 			const dir = join(process.cwd(), dirName);
-			await runNpmOutdated(dir);
+			await runNpmUpgrade(dir);
 			dirName = targetFolders.pop();
 		}
 	} catch (err) {
