@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-subscriber-status-get",
   "description": "Gets the status of a subscriber",
-  "version": "0.4.1",
+  "version": "0.4.4",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },

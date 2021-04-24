@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-email-history-get",
   "description": "Gets a history of emails that have been sent.",
-  "version": "0.4.1",
+  "version": "0.4.4",
   "main": "index.js",
   "license": "MIT",
   "repository": {
