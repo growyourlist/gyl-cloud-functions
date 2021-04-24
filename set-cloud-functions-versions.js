@@ -20,7 +20,7 @@ const run = async () => {
 		let targetFolders = targetFolderInput
 			? dirs.filter((dir) => {
 					return resolve(dir) === targetFolderInput;
-			  })
+				})
 			: dirs;
 		let dirName = targetFolders.pop();
 		while (dirName) {
