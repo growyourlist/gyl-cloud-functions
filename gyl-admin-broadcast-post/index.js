@@ -65,7 +65,7 @@ const broadcastSchema = Joi.object({
 		})
 	),
 	winningType: Joi.alternatives().try(
-		Joi.any().allow(null, undefined),
+		Joi.any().allow(null),
 		Joi.string().valid(
 			'content: email with most clicks',
 			'subject: email with most opens',
