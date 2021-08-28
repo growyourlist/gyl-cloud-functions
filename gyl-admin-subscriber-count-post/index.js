@@ -9,6 +9,7 @@ exports.handler = async (event) => {
 			interactions = null,
 			excludeTags = null,
 			ignoreConfirmed = null,
+			joinedAfter = null,
 			interactionWithAnyEmail = null;
 		try {
 			const input = JSON.parse(event.body);
@@ -49,6 +50,9 @@ exports.handler = async (event) => {
 			} else {
 				interactions = null;
 			}
+			if (typeof input.joinedAfter === 'number') {
+				joinedAfter = input.joinedAfter;
+			}
 		} catch (err) {
 			return {
 				statusCode: 400,
@@ -70,6 +74,7 @@ exports.handler = async (event) => {
 						interactions,
 						interactionWithAnyEmail,
 						ignoreConfirmed,
+						joinedAfter,
 					},
 				},
 			})

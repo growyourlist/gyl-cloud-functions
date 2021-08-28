@@ -72,6 +72,7 @@ const broadcastSchema = Joi.object({
 			'auto-merge subject (most opens) and content (most clicks) into new email'
 		)
 	),
+	joinedAfter: Joi.number().allow(null),
 }).unknown(false);
 
 const ses = new AWS.SES();
