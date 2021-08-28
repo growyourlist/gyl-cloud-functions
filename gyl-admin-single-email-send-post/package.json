@@ -9,7 +9,7 @@
   "author": "gyl-dev <gyl-dev@posteo.eu>",
   "license": "MIT",
   "dependencies": {
-    "@hapi/joi": "^17.1.1",
+    "joi": "^17.4.2",
     "uuid": "^8.3.2"
   },
   "peerDependencies": {

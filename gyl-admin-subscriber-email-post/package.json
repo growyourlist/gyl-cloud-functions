@@ -12,7 +12,7 @@
     "test": "node test"
   },
   "dependencies": {
-    "joi": "^17.4.0",
+    "joi": "^17.4.2",
     "p-queue": "^6.6.2",
     "query-all-for-dynamodb": "0.0.2",
     "write-all-for-dynamodb": "0.0.3"

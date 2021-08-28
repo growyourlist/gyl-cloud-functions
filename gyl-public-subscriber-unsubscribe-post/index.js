@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const Joi = require('@hapi/joi');
+const Joi = require('joi');
 const { queryAllForDynamoDB, ReturnType } = require('query-all-for-dynamodb');
 const { writeAllForDynamoDB } = require('write-all-for-dynamodb');
 

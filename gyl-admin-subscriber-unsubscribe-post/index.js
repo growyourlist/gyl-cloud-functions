@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const Joi = require('@hapi/joi');
+const Joi = require('joi');
 const { writeAllForDynamoDB } = require('write-all-for-dynamodb');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();

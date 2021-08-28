@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const Joi = require('@hapi/joi');
+const Joi = require('joi');
 const uuid = require('uuid');
 const moment = require('moment-timezone');
 const { queryAllForDynamoDB } = require('query-all-for-dynamodb');
