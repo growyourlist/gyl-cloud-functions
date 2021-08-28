@@ -401,7 +401,7 @@ exports.handler = async (event) => {
 				.promise();
 			if (!hasAllTags) {
 				await runTrigger(event.queryStringParameters, updatedSubscriber);
-				await triggerAutoresponders(opts, fullSubscriber);
+				await triggerAutoresponders(opts, updatedSubscriber);
 			}
 			const queueInfoResponse = await queryAllForDynamoDB(dynamodb, {
 				TableName: `${dbTablePrefix}Queue`,
