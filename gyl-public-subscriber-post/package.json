@@ -1,7 +1,7 @@
 {
   "name": "gyl-public-add-subscriber",
   "description": "Adds a subscriber.",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },

@@ -1,7 +1,7 @@
 {
   "name": "gyl-admin-autoconfirm-tags-post",
   "description": "Posts the list of autoconfirm tags",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "repository": {
     "url": "https://github.com/growyourlist/gyl-cloud-functions"
   },
