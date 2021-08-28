@@ -124,8 +124,25 @@ exports.handler = async (event) => {
 			finalSubscribers = subscribers;
 		}
 
+		// Silently suppress emails which have domains that are on the block list.
+		const blockedEmailDomainsSetting = await dynamodb.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: 'blockedEmailDomains'
+			}
+		}).promise()
+		if (blockedEmailDomainsSetting.Item && Array.isArray(blockedEmailDomainsSetting.Item.value)) {
+			const blockedDomains = new Set(blockedEmailDomainsSetting.Item.value);
+			finalSubscribers = finalSubscribers.filter(subscriber => {
+				const lowercaseEmail = subscriber.email.toLocaleLowerCase();
+				const emailParts = lowercaseEmail.split('@');
+				const domain = emailParts[emailParts.length - 1];
+				return !blockedDomains.has(domain);
+			})
+		}
+
 		if (!finalSubscribers.length) {
-			// All subscribers are already in the db
+			// All subscribers are already in the db (or have blocked domains)
 			return response(200, 'OK');
 		}
 

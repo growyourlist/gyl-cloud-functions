@@ -158,6 +158,31 @@ exports.handler = async (event) => {
 			requestBody.opts.tagReason = [requestBody.opts.tagReason];
 		}
 		const email = requestBody.toEmailAddress;
+
+		// Silently suppress the email if the email address is from a blocked
+		// domain.
+		const blockedEmailDomainsSetting = await dynamodb.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: 'blockedEmailDomains'
+			}
+		}).promise()
+		if (blockedEmailDomainsSetting.Item && Array.isArray(blockedEmailDomainsSetting.Item.value)) {
+			const blockedDomains = new Set(blockedEmailDomainsSetting.Item.value);
+			const lowercaseEmail = email.toLocaleLowerCase();
+			const emailParts = lowercaseEmail.split('@');
+			const domain = emailParts[emailParts.length - 1];
+			if (domain && blockedDomains.has(domain)) {
+				console.warn(`Suppressing email action because domain is on blocked domains list`);
+				const response = {
+					statusCode: 200,
+					headers: { 'Access-Control-Allow-Origin': '*' },
+					body: JSON.stringify('OK'),
+				};
+				return response;
+			}
+		}
+
 		const subscriber = await getOrCreateSubscriber(email, requestBody.opts);
 		const queueItemProps = {
 			type: 'send email',

@@ -182,6 +182,26 @@ exports.handler = async (event) => {
 			JSON.parse(event.body)
 		);
 		const { email } = subscriberInput;
+
+		// Silently suppress the creation if the email address is from a blocked
+		// domain.
+		const blockedEmailDomainsSetting = await dynamodb.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: 'blockedEmailDomains'
+			}
+		}).promise()
+		if (blockedEmailDomainsSetting.Item && Array.isArray(blockedEmailDomainsSetting.Item.value)) {
+			const blockedDomains = new Set(blockedEmailDomainsSetting.Item.value);
+			const lowercaseEmail = email.toLocaleLowerCase();
+			const emailParts = lowercaseEmail.split('@');
+			const domain = emailParts[emailParts.length - 1];
+			if (domain && blockedDomains.has(domain)) {
+				console.warn(`Suppressing email action because domain is on blocked domains list`);
+				return response(200, JSON.stringify('OK'))
+			}
+		}
+
 		const existingSubscriber = await getSubscriberIdByEmail(email);
 		if (!existingSubscriber) {
 			subscriberInput.displayEmail = email;

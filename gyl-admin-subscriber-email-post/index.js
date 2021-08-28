@@ -29,6 +29,29 @@ exports.handler = async (event) => {
 		const currentSubscriber = currentSubscriberResponse.Item
 		const newEmailLowerCase = email.toLocaleLowerCase();
 
+		// Silently suppress the email update if the new email is from a blocked
+		// domain.
+		const blockedEmailDomainsSetting = await dynamodb.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: 'blockedEmailDomains'
+			}
+		}).promise()
+		if (blockedEmailDomainsSetting.Item && Array.isArray(blockedEmailDomainsSetting.Item.value)) {
+			const blockedDomains = new Set(blockedEmailDomainsSetting.Item.value);
+			const emailParts = newEmailLowerCase.split('@');
+			const domain = emailParts[emailParts.length - 1];
+			if (domain && blockedDomains.has(domain)) {
+				console.warn(`Suppressing email action because domain is on blocked domains list`);
+				const response = {
+					statusCode: 200,
+					headers: { 'Access-Control-Allow-Origin': '*' },
+					body: JSON.stringify('OK'),
+				};
+				return response;
+			}
+		}
+
 		// No need to update the email if the current email is already the same.
 		if (newEmailLowerCase === currentSubscriber.email) {
 			return {
