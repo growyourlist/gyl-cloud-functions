@@ -70,7 +70,22 @@ const triggerSchema = Joi.object({
 			},
 		],
 	}),
+	// triggerAutoresponders is not handled as a result of this schema, it is
+	// handled by the schema matching array parameters
+	triggerAutoresponders: Joi.any(),
 }).unknown(false);
+
+const optsSchema = Joi.object({
+	// triggerType is not handled as a result of this schema, it is
+	// handled by the schema matching non-array parameters
+	triggerType: Joi.any(),
+	// triggerId is not handled as a result of this schema, it is
+	// handled by the schema matching non-array parameters
+	triggerId: Joi.any(),
+	triggerAutoresponders: Joi.array().items(
+		Joi.string().pattern(/^[a-zA-Z0-9]+$/)
+	).optional()
+})
 
 /**
  * Fetches a subscriber id associated with the given email.
@@ -222,6 +237,15 @@ const mergeTags = (currentTags, newTags) => {
 	return mergedTags;
 };
 
+async function triggerAutoresponders(opts, subscriber) {
+	if (!opts || !Array.isArray(opts.triggerAutoresponders)) {
+		return;
+	}
+	for (const autoresponderId of opts.triggerAutoresponders) {
+		await addSubscriberToAutoresponder(autoresponderId, subscriber);
+	}
+}
+
 /**
  * Runs a trigger given the
  * @param {object} params
@@ -243,51 +267,53 @@ const runTrigger = async (params, subscriber) => {
 		params.triggerType === 'autoresponder' &&
 		params.triggerId
 	) {
-		// Run an autoresponder trigger.
-		const autoresponderId = params.triggerId;
-		const autoResponderResponse = await dynamodb
-			.get({
-				TableName: `${dbTablePrefix}Settings`,
-				Key: {
-					settingName: `autoresponder-${autoresponderId}`,
-				},
-			})
-			.promise();
-		const startStep =
-			autoResponderResponse &&
-			autoResponderResponse.Item &&
-			autoResponderResponse.Item.value &&
-			autoResponderResponse.Item.value.steps &&
-			autoResponderResponse.Item.value.steps.Start;
-		if (!startStep) {
-			console.warn(
-				'Autoresponder or autoresponder start step not found ' +
-					`autoresponder-${autoresponderId}:Start`
-			);
-			return;
-		}
-		const runAt = Date.now();
-		const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
-		const queueItem = Object.assign({}, startStep, {
-			queuePlacement: 'queued',
-			runAtModified,
-			runAt,
-			attempts: 0,
-			failed: false,
-			completed: false,
-			subscriber,
-			subscriberId: subscriber.subscriberId,
-			autoresponderId,
-			autoresponderStep: 'Start',
-		});
-		await dynamodb
-			.put({
-				TableName: `${dbTablePrefix}Queue`,
-				Item: queueItem,
-			})
-			.promise();
+		await addSubscriberToAutoresponder(params.triggerId, subscriber);
 	}
 };
+
+async function addSubscriberToAutoresponder(autoresponderId, subscriber) {
+	const autoResponderResponse = await dynamodb
+		.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: `autoresponder-${autoresponderId}`,
+			},
+		})
+		.promise();
+	const startStep =
+		autoResponderResponse &&
+		autoResponderResponse.Item &&
+		autoResponderResponse.Item.value &&
+		autoResponderResponse.Item.value.steps &&
+		autoResponderResponse.Item.value.steps.Start;
+	if (!startStep) {
+		console.warn(
+			'Autoresponder or autoresponder start step not found ' +
+			`autoresponder-${autoresponderId}:Start`
+		);
+		return;
+	}
+	const runAt = Date.now();
+	const runAtModified = `${runAt}${Math.random().toString().substring(1)}`;
+	const queueItem = Object.assign({}, startStep, {
+		queuePlacement: 'queued',
+		runAtModified,
+		runAt,
+		attempts: 0,
+		failed: false,
+		completed: false,
+		subscriber,
+		subscriberId: subscriber.subscriberId,
+		autoresponderId,
+		autoresponderStep: 'Start',
+	});
+	await dynamodb
+		.put({
+			TableName: `${dbTablePrefix}Queue`,
+			Item: queueItem,
+		})
+		.promise();
+}
 
 /**
  * Posts a subscriber and runs a confirmation or autoresponder trigger if
@@ -301,15 +327,38 @@ exports.handler = async (event) => {
 		const trigger =
 			event.queryStringParameters &&
 			(await triggerSchema.validateAsync(event.queryStringParameters));
+		const opts = event.multiValueQueryStringParameters &&
+			(await optsSchema.validateAsync(event.multiValueQueryStringParameters));
 		const { email } = subscriberInput;
 		const existingSubscriber = await getSubscriberIdByEmail(
 			email.toLocaleLowerCase()
 		);
+
+		// Silently suppress the creation if the email address is from a blocked
+		// domain.
+		const blockedEmailDomainsSetting = await dynamodb.get({
+			TableName: `${dbTablePrefix}Settings`,
+			Key: {
+				settingName: 'blockedEmailDomains'
+			}
+		}).promise()
+		if (blockedEmailDomainsSetting.Item) {
+			const blockedDomains = new Set(blockedEmailDomainsSetting.Item.value);
+			const lowercaseEmail = email.toLocaleLowerCase();
+			const emailParts = lowercaseEmail.split('@');
+			const domain = emailParts[emailParts.length - 1];
+			if (domain && blockedDomains.has(domain)) {
+				console.warn(`Suppressing email action because domain is on blocked domains list`);
+				return response(200, JSON.stringify('Added'))
+			}
+		}
+
 		if (!existingSubscriber) {
 			subscriberInput.displayEmail = email;
 			subscriberInput.email = email.toLocaleLowerCase();
 			const fullSubscriber = await saveSubscriber(subscriberInput);
 			await runTrigger(trigger, fullSubscriber);
+			await triggerAutoresponders(opts, fullSubscriber);
 			return response(200, JSON.stringify('Added'));
 		} else {
 			const fullSubscriber = await getSubscriberFull(
@@ -326,7 +375,10 @@ exports.handler = async (event) => {
 				{},
 				fullSubscriber,
 				subscriberInput,
-				{ tags: tagsUpdate }
+				{
+					tags: tagsUpdate,
+					email: email.toLocaleLowerCase(),
+				}
 			);
 			if (existingSubscriber.unsubscribed) {
 				updatedSubscriber.unsubscribed = false;
@@ -349,6 +401,7 @@ exports.handler = async (event) => {
 				.promise();
 			if (!hasAllTags) {
 				await runTrigger(event.queryStringParameters, updatedSubscriber);
+				await triggerAutoresponders(opts, fullSubscriber);
 			}
 			const queueInfoResponse = await queryAllForDynamoDB(dynamodb, {
 				TableName: `${dbTablePrefix}Queue`,
