@@ -43,6 +43,8 @@ const broadcastSchema = Joi.object({
 	runAt: Joi.number()
 		.allow(null)
 		.greater(Date.now() - 86400000),
+	subscriberRunAt: Joi.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+	datetimeContext: Joi.string().valid('utc', 'subscriber'),
 	interactions: Joi.array().items(
 		Joi.object().keys({
 			templateId: Joi.string()
@@ -94,6 +96,22 @@ const response = (statusCode, body = '') => {
 	};
 };
 
+const getRunAt = (broadcast) => {
+	if (broadcast.datetimeContext === 'subscriber') {
+		if (!broadcast.subscriberRunAt) {
+			throw new Error('If using subscriber\'s timezone, date/time must be set');
+		}
+		// subscriberRunAt has been validated to be in format ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+		// Start queuing items at the earliest moment in the day by setting runAt
+		// to use +12 offset, i.e. the first timezone to experience a given date/time
+		// TODO check if it's safe to use +14 offset.
+		return `${Date.parse(`${broadcast.subscriberRunAt}:00.000+12:00`)}${Math.random().toString().substr(1)}`
+	}
+	return `${parseInt(
+		broadcast.runAt || Date.now()
+	)}${Math.random().toString().substr(1)}`;
+}
+
 exports.handler = async (event) => {
 	try {
 		let broadcast = null;
@@ -114,9 +132,7 @@ exports.handler = async (event) => {
 			);
 		}
 		const Item = Object.assign({}, broadcast, {
-			runAt: `${parseInt(
-				broadcast.runAt || Date.now()
-			)}${Math.random().toString().substr(1)}`,
+			runAt: getRunAt(broadcast),
 			// Merge list into list of tags to search for, as it is just a tag itself.
 			tags: (broadcast.tags && broadcast.tags.concat(broadcast.list)) || [
 				broadcast.list,
